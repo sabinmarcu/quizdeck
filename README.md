@@ -5,6 +5,10 @@ React + TypeScript with two renderer entry points: React DOM served by Vite in
 application behavior and shared data/state architecture are intentionally not
 implemented yet. The existing `questions.json` and PDF extractor are unchanged.
 
+Product/design planning is in [the application vision](docs/planning/vision.md),
+which links the scope-based implementation phases. Each phase covers both CLI and
+web delivery; the documents do not imply that application behavior is implemented.
+
 ## Development
 
 The development toolchain is pinned to Node.js **26.10.0** and Yarn **4.18.1** in
