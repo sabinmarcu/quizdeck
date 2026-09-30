@@ -1,4 +1,68 @@
 {
   "name": "claude-certification",
-  "packageManager": "yarn@4.18.1"
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.18.1",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.10.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "yarn",
+      "version": "4.18.1",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:web": "vite",
+    "dev:cli": "tsx src/cli/main.tsx",
+    "cli": "tsx src/cli/main.tsx",
+    "build": "yarn typecheck && yarn build:web && yarn build:cli",
+    "build:web": "vite build",
+    "build:cli": "esbuild src/cli/main.tsx --bundle --packages=external --format=esm --platform=node --target=node22 --outdir=dist/cli",
+    "start:cli": "node dist/cli/main.js",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src *.config.{js,mjs,ts}",
+    "lint:fix": "eslint src *.config.{js,mjs,ts} --fix",
+    "test": "vitest run",
+    "commitlint": "commitlint --edit",
+    "lint-staged": "lint-staged",
+    "postinstall": "husky"
+  },
+  "dependencies": {
+    "@sabinmarcu/theme": "1.2.4",
+    "@vanilla-extract/css": "^1.21.2",
+    "@vanilla-extract/dynamic": "^2.1.5",
+    "ink": "^7.1.1",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@sabinmarcu/eslint-config": "3.4.3",
+    "@types/eslint-plugin-jsx-a11y": "^6",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vanilla-extract/vite-plugin": "^5.2.6",
+    "@vitejs/plugin-react": "^6.1.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.71.0",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
 }

@@ -1,0 +1,18 @@
+version: 2
+createdAt: 2026-09-30T20:33:52.544Z
+presets: []
+modules:
+  - arch/node-package
+  - arch/node-root-package
+  - arch/react
+  - arch/web-application
+  - global/core
+  - guardrails/web-platform
+  - guardrails/web-style
+  - lang/typescript
+  - tooling/commitlint
+  - tooling/eslint
+  - tooling/husky
+  - tooling/lint-staged
+  - tooling/yarn
+assetMode: materialized

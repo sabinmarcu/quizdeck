@@ -1,0 +1,197 @@
+version: 1
+files:
+  - path: .github/skills/stack-reconciliation/SKILL.md
+    hash: 0bb427da4345e80dc2cac3e1bfdc81bfa883b5e08d71e1b0003c98ac85dcdf44
+    ownerId: baseline/stack-reconciliation
+    ownerType: baseline
+    ownerVersion: "1"
+  - path: .ai/AGENTS.md
+    hash: 84d61857abbfd4ef4b623304ad7b6af86697f4723619e0136df75060bc18155f
+    ownerId: baseline/entrypoint
+    ownerType: baseline
+    ownerVersion: "1"
+  - path: .github/instructions/shared/commits/commits.instructions.md
+    hash: 949f87540fce5a5fca0da1e54dfdbc3a3bfcf7f2766fc29d9ca4f5e24e0baa1a
+    ownerId: guidance/commits
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/conventional-commits/conventional-commits.instructions.md
+    hash: c59212dd07a30d0bc3d7da56f0d693313599c71440aa74d38b942a98284d3627
+    ownerId: guidance/conventional-commits
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/global-repo-local-agent-notes.instructions.md
+    hash: f3a5dc89633ca4716e58c73d17c64ba13eb10502591cae15656e7d2dbee955cf
+    ownerId: global/core
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/global-repo-tmp.instructions.md
+    hash: 8c266cf7cae2e3b70a420f051a15ba22bb8c536330f2995af1901813a654fc36
+    ownerId: global/core
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package/node-package-architecture.instructions.md
+    hash: bb6492e0e19f403105567bf9a01f120d0b4575d3d1458146be7a4bda3bebc19a
+    ownerId: arch/node-package
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package/node-package-package-managers.instructions.md
+    hash: 251b0141f79fbdeaf2881bc0a6ea72f40112c2e0aa15a473913a6cacfbdf35d1
+    ownerId: arch/node-package
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package/node-package-proto.instructions.md
+    hash: 3af897627682fe9e3a4e636cdb8823a6a1c118bf5c29ee14225bc545ad118962
+    ownerId: arch/node-package
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package/node-package-eslint-prettier-policy.instructions.md
+    hash: 776f1c08bdeb3afec906f03ad2840a703389e7a64f382345495bc4206b4a8509
+    ownerId: arch/node-package
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package/node-package-editor-prettier-disable.instructions.md
+    hash: 33b6f7d905bc3a97e23c68bbbb8ea97e3f49cd6a45e2fdcd53843f48172fad70
+    ownerId: arch/node-package
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/commitlint/commitlint-configuration.instructions.md
+    hash: cb2579f6461636d3c636c78085f12cf9404b1b92ee22233cda990b2271555967
+    ownerId: tooling/commitlint
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/linting/eslint-configuration.instructions.md
+    hash: 6a4c8b6fca89fc562806d4413506c30f557de40f652dba5027bed5fab3f186a8
+    ownerId: tooling/eslint
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/husky/husky-configuration.instructions.md
+    hash: 7e1a243e388f72d35630eca4441e8d887e1355180d0e92198c4f203d7ed11d6e
+    ownerId: tooling/husky
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/lint-staged/lint-staged-configuration.instructions.md
+    hash: 5c5b9bd1e9fde60a4ad56507243bad71b9cfcedf2b19f84ea24ba9df542afbe7
+    ownerId: tooling/lint-staged
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-root-package/node-root-package-architecture.instructions.md
+    hash: 158662ad8c1c1734400ad31e0fcf8421f0df72f5b9f2c2741ccb3ee337078ffe
+    ownerId: arch/node-root-package
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/react/react-architecture.instructions.md
+    hash: 0c5d9506a48177ee27f70662eef65f0f8a6ae95ac81adabf8dd8b7a6164e40c7
+    ownerId: arch/react
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package-application/node-package-application-architecture.instructions.md
+    hash: a50d71dc1d18a5fc2e675d51e3c0f294af993d4530c7c233c929e85802c4ce32
+    ownerId: arch/node-package-application
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/web-platform/web-platform.instructions.md
+    hash: 5b7b029316e597fba508b1c459c76f7707d00aa2ac1c23854e4e5b6e8532e19f
+    ownerId: guardrails/web-platform
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/web-application/web-application-architecture.instructions.md
+    hash: 6c53a5d0d20fcd63f865fc60fa13836f6cb837af5cf2f262c467ebe88829bd98
+    ownerId: arch/web-application
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/frontend/web-styling.instructions.md
+    hash: 8bbdeb6d0a18de59e91483d3e674f2e13befe7b7819e8b64ba0cbde0c9b720dd
+    ownerId: guardrails/web-style
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/frontend/web-accessibility.instructions.md
+    hash: ffccb0a40af7b43d64f9d01ab2b77841859ee963cc8254249482c6f89d5b52b0
+    ownerId: guardrails/web-style
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-architecture.instructions.md
+    hash: 8dada22f62ea5b88d418c8b5cabd00f2a04674fa641880819e1f5c616169f661
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-function-namespace-types.instructions.md
+    hash: d5c9104e7a12189e7a088eb859908febeddc5dec230d2b624b1c340215d905c8
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-build-and-scripts.instructions.md
+    hash: 39df1bd1d198dfcd12d254fecca34f007d8eff5e8e646c887febc0c18dd3a5c0
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-tsconfig-layout.instructions.md
+    hash: 77229d044ae97574420b775bbc354fcf37ec39014a15bd61fee37fd08eb13200
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-runtime-validation.instructions.md
+    hash: 86a48155f78ce586db2d15862bcc4bb53b855e3462b8d7c2fb21d072710a8270
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-node-api-typings.instructions.md
+    hash: c05bb087c4f7a98ec4ab7e3037742f917543e0717da197aed8b8a4e003987dc9
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-native-execution.instructions.md
+    hash: b8318f6414d62a65d431775369c5cc54273c57107130643c528a649c76aaf880
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/typescript/typescript-testing.instructions.md
+    hash: 6b8be0dbcee1867d8ff84616fcaf36a2c049c0c93759b152b9037447ef8c0e7c
+    ownerId: lang/typescript
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/yarn/yarn-configuration.instructions.md
+    hash: 6b1379219a86c51c46c8f6a840c1eca50733dce6914d90ac347cef6cac78d129
+    ownerId: tooling/yarn
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/commitlint-conventional-commits/commitlint-conventional-commits.instructions.md
+    hash: 7285eaaaaefdeb6a111c3b2dbcde46cb0bc81f1676f920e473fc10470d2fe821
+    ownerId: mixin/commitlint-conventional-commits
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/eslint-lint-staged/eslint-lint-staged.instructions.md
+    hash: aad2863ff9cab3792ca89ce96f032216ae1c1b938e97eac1a5da932b921a81ee
+    ownerId: mixin/eslint-lint-staged
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/husky-commitlint/husky-commitlint.instructions.md
+    hash: 7b42e75afa1e24264d9fe905e6bac68efcb9d3e0ad4c677e0b47b4a99e5d087d
+    ownerId: mixin/husky-commitlint
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/husky-lint-staged/husky-lint-staged.instructions.md
+    hash: 848a96df979bda2b5d62c74b1d6a77b650787b7aa8d37bc3c1f0ea292e300303
+    ownerId: mixin/husky-lint-staged
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/husky-typescript/husky-typescript.instructions.md
+    hash: 311116feba30b38eb9748853e2b5ac18508f2a6f3cefe30770099bace2820215
+    ownerId: mixin/husky-typescript
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/react-eslint/react-eslint.instructions.md
+    hash: 1014879d81814e4b50e825bcecbd7ce98b2287e40c19f715295c4441b27bcb33
+    ownerId: mixin/react-eslint
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/typescript-eslint/typescript-eslint.instructions.md
+    hash: 9ef28ee2564ee666742a74b3af40d20cd8ca03cd5c3f4a62847e5880e67c2b30
+    ownerId: mixin/typescript-eslint
+    ownerType: mixin
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/mixins/web-react-eslint/web-react-eslint.instructions.md
+    hash: a638c897e6c84f3d649fb3bfe7759fb56689493d4274afffa3f8e2fbac057f79
+    ownerId: mixin/web-react-eslint
+    ownerType: mixin
+    ownerVersion: 0.1.0
