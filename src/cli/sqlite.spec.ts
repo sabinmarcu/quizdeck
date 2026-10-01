@@ -11,6 +11,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 import { loadBundledBank } from '../data/bank';
 import type { Bank } from '../data/bank';
@@ -161,5 +162,52 @@ describe('SQLite progress durability', () => {
     await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow();
     expect(native.prepare('SELECT payload FROM progress_learning WHERE id = ?').get('1')?.payload).toBe('{broken-json');
     native.close();
+  });
+  it('notifies subscribers when another connection commits and stops after unsubscription or close', async () => {
+    vi.useFakeTimers();
+    try {
+      const observer = await openSeeded();
+      const writer = await SqliteProgressStorage.open({ path: filename });
+      opened.push(writer);
+      let publications = 0;
+      const unsubscribe = observer.subscribe(() => { publications += 1; });
+
+      await writer.commit({
+        expectedRevision: 1,
+        changes: [{
+          kind: 'putLearning',
+          answer: correctAnswer(1),
+        }],
+      });
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(publications).toBe(1);
+      expect((await observer.load()).learning).toEqual([correctAnswer(1)]);
+
+      unsubscribe();
+      await writer.commit({
+        expectedRevision: 2,
+        changes: [{
+          kind: 'putLearning',
+          answer: correctAnswer(2),
+        }],
+      });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(publications).toBe(1);
+
+      observer.subscribe(() => { publications += 1; });
+      observer.close();
+      await writer.commit({
+        expectedRevision: 3,
+        changes: [{
+          kind: 'putLearning',
+          answer: correctAnswer(3),
+        }],
+      });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(publications).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

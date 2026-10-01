@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { StatementSync } from 'node:sqlite';
 import { validateBank } from '../data/bank';
 import type { Bank } from '../data/bank';
 import {
@@ -89,15 +90,22 @@ export class SqliteProgressStorage implements ProgressStorage {
 
   private readonly database: DatabaseSync;
 
+  private readonly dataVersionQuery: StatementSync;
+
   private readonly listeners = new Set<() => void>();
 
   private readonly bankCache = new Map<string, CachedBank>();
 
   private closed = false;
 
+  private observedDataVersion: number | undefined;
+
+  private dataVersionTimer: NodeJS.Timeout | undefined;
+
   private constructor({ path: filename }: SqliteProgressStorage.Options) {
     this.location = filename;
     this.database = new DatabaseSync(filename, { timeout: 5000 });
+    this.dataVersionQuery = this.database.prepare('PRAGMA data_version');
   }
 
   public static async open(options: SqliteProgressStorage.Options): Promise<SqliteProgressStorage> {
@@ -187,20 +195,23 @@ export class SqliteProgressStorage implements ProgressStorage {
         bank,
       });
     }
-    for (const listener of this.listeners) {
-      try {
-        listener();
-      } catch {
-        // Observers cannot turn a successful database commit into a failed save.
-      }
-    }
+    this.notifyListeners();
     return next;
   }
 
   public subscribe(listener: () => void): () => void {
     this.assertOpen();
+    const wasEmpty = this.listeners.size === 0;
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    if (wasEmpty) {
+      this.startDataVersionMonitor();
+    }
+    return () => {
+      this.listeners.delete(listener);
+      if (this.listeners.size === 0) {
+        this.stopDataVersionMonitor();
+      }
+    };
   }
 
   public close(): void {
@@ -209,9 +220,55 @@ export class SqliteProgressStorage implements ProgressStorage {
     }
 
     this.closed = true;
+    this.stopDataVersionMonitor();
     this.listeners.clear();
     this.bankCache.clear();
     this.database.close();
+  }
+
+  private startDataVersionMonitor(): void {
+    this.observedDataVersion = this.readDataVersion();
+    this.dataVersionTimer = setInterval(() => {
+      if (this.closed || this.listeners.size === 0) {
+        return;
+      }
+      try {
+        const version = this.readDataVersion();
+        if (version !== this.observedDataVersion) {
+          this.observedDataVersion = version;
+          this.notifyListeners();
+        }
+      } catch {
+        this.notifyListeners();
+      }
+    }, 1000);
+    this.dataVersionTimer.unref();
+  }
+
+  private stopDataVersionMonitor(): void {
+    if (this.dataVersionTimer) {
+      clearInterval(this.dataVersionTimer);
+      this.dataVersionTimer = undefined;
+    }
+    this.observedDataVersion = undefined;
+  }
+
+  private readDataVersion(): number {
+    const value = this.dataVersionQuery.get()?.data_version;
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+      throw new TypeError('SQLite data version is invalid.');
+    }
+    return value;
+  }
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Observers cannot turn a successful database commit into a failed save.
+      }
+    }
   }
 
   private initialize(): void {

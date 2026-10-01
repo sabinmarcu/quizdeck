@@ -1,6 +1,7 @@
 # Phase 4 — Integration and delivery
 
-**Status:** planned, not implemented. **Dependencies:**
+**Status:** Linux/Chromium integration exercised; native Windows and Safari/iOS
+Safari verification gates remain open. **Dependencies:**
 [Phase 1](01-foundations-and-launch.md), [Phase 2](02-learning-mode.md), and
 [Phase 3](03-practice-mode.md).
 
@@ -112,3 +113,59 @@ completed reports are immutable, keyboard/accessibility behavior is coherent, an
 CLI-hosted web operation respects the separate IndexedDB/SQLite boundary. All
 reachable defects are fixed; missing platform proof is recorded as an unmet gate,
 not silently marked successful.
+
+## Implementation and verification evidence
+
+Runtime evidence below was collected on Linux x86-64, Node.js 26.10.0, Yarn
+4.18.1, and Chromium 150.0.7871.24. This records the actual engine version, not
+an assertion that other supported engines were exercised.
+
+### Corrections
+
+- SQLite subscribers now watch native `PRAGMA data_version` once per second.
+  An external commit refreshes another CLI's question status and recorded feedback
+  without a rejected stale answer attempt. The prepared query and unref'd timer
+  exist only while subscribed; unsubscribe/close stops monitoring. Native read
+  failures notify the owning refresh/error boundary rather than crashing an
+  interval callback. Database revisions and ownership still guard every write.
+- Web practice renders one contextual error alert instead of announcing the same
+  failed save or ownership conflict in both the shell and the practice view.
+- Completed CLI reports discard their trailing separator lines, so G/End lands
+  on the last explanation rather than an empty viewport in a short terminal.
+
+### Exercised matrix
+
+| Boundary | Observed evidence |
+| --- | --- |
+| Built delivery | Copied `dist/cli` and `dist/web` into a runtime-dependencies-only installation without `src`, `tsx`, or Vite. Absolute-path Node invocations launched Ink and hosted React from another cwd. A copied-root-only resource was served; withholding only the copied web build produced the actionable missing-assets error and exit 1. |
+| Commands and host | Source/built help and invalid commands retained Clipanion behavior; non-TTY Ink failed clearly. The fixed-origin host rejected an occupied port, encoded traversal, absent resources, and POST. SIGINT exited 0 and released the listener; a same-origin restart preserved the entire browser snapshot and reopened its report. |
+| CLI invalidation and errors | Two real Ink processes shared isolated XDG SQLite. An answer in one updated the other's detail to read-only feedback. Native open errors, corrupt files, unsupported schema, and an exclusive database lock surfaced storage errors without empty-state replacement or uncaught monitor exceptions. |
+| Complete practice | Actual built browser controls completed a randomized 60-question run and displayed all 60 report mappings, selected choices, and explanations. Actual runtime-only Ink controls completed another 60-question run; restarting restored the identical saved run and report. Observed scores were 18/60 in web and 14/60 in CLI; these are smoke results, not a certification pass threshold. |
+| Atomic failure/recovery | Native SQLite final-answer trigger failure and native IndexedDB transaction abort retained 59 answers with no report, cleared pending state, and allowed an explicit successful retry. A main-realm native IndexedDB abort in the final built UI kept the current question, showed exactly one alert, and advanced once only after retry. |
+| Timing/history | Session-local monotonic clocks exercised 8 active minutes, a two-hour pause, then 12 active minutes: both real stores saved 20 minutes. Reopening against a changed bundled bank retained historical learning feedback, sample IDs, choice ordering, and completed results. Corrupt/newer browser schemas failed without resetting their stored records. |
+| Native lifecycle | Direct-Node Ink PTYs stopped on SIGTSTP with paused data and a released cursor; SIGCONT restored active practice, h navigation, and q exit 0. A dedicated headed Chromium instance, with focus emulation disabled, produced genuine hidden/blur and visible/focus transitions: automatic pause/resume, frozen hidden time, and retained manual pause. Navigating away and reopening after lease expiry preserved run ID, order, answers, viewed position, and checkpoint time. |
+| Web accessibility | Actual 320px portrait rendering had no horizontal overflow and showed initialized themed focus styling. Learning help/reset dialogs restored invoker focus; reset began on Cancel. Question 140 had three choices, and missing source explanations were explicit. Before answers/completion, DOM/ARIA/choice styling did not disclose withheld feedback. Focus movement did not answer. Loading, unavailable IndexedDB, and best-effort-retention acknowledgment surfaces were exercised. |
+| Web concurrency | A second real same-origin tab refreshed its practice history after a commit and rejected simultaneous run ownership with disabled/paused choices and one contextual alert. |
+| Narrow CLI | At 12 rows × 40 columns, Ctrl-d reached the end of practice help, gg/G navigated report boundaries, and G retained visible final explanation content. Question 140 rejected a nonexistent fourth choice and recorded choice C at index 2. |
+
+The 67-test Vitest suite, typecheck, ESLint fixing checks, both builds, and immutable
+repository install passed. Browser output contained no Node API imports; the
+standalone browser launch reported no runtime errors. Existing Vite chunk-size
+and shared-ESLint peer warnings remain; no warning suppression was added.
+
+Verification used isolated native databases and temporary runtime installations.
+Shared browser-origin records were captured and restored; dedicated sessions were
+closed and temporary task artifacts removed.
+
+### Unmet exit gates
+
+- **Native Windows:** no Windows host was available. Linux execution, Windows path
+  unit coverage, Wine availability, and a Windows-form Chromium user agent do not
+  establish native Windows storage, terminal, or signal behavior.
+- **Safari and iOS Safari:** no runtime or configured remote host was available.
+  Chromium portrait layout and Chromium lifecycle proof are not Safari proof.
+
+Phase 4 is **not fully closed** until the existing verification matrix is exercised
+on those actual platforms and engine versions are recorded. No product requirement
+or supported-platform gate has been removed.
+

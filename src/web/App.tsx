@@ -280,7 +280,7 @@ export function App({ onReload }: App.Props) {
         )}
       </nav>
       {pending && <output className={status}>Saving progress…</output>}
-      {saveError && <p className={error} role="alert">{saveError}</p>}
+      {saveError && section !== 'Practice' && <p className={error} role="alert">{saveError}</p>}
       {section === 'Learn' && (
         <Learning
           keyboardEnabled={!extrasOpen}

@@ -149,9 +149,20 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
       canAnswer: view.canAnswer,
     }, width);
   }, [view, width]);
-  const completedLines = useMemo<TerminalLine[]>(() => (report
-    ? report.questions.flatMap((question) => reportLines(question, width))
-    : [{ text: 'Opening completed practice report…' }]), [report, width]);
+  const completedLines = useMemo<TerminalLine[]>(() => {
+    if (!report) {
+      return [{ text: 'Opening completed practice report…' }];
+    }
+    const lines = report.questions.flatMap((question) => reportLines(question, width));
+    while (lines.length > 0) {
+      const last = lines.at(-1)!;
+      if (last.text !== '' && last.text !== ' ') {
+        break;
+      }
+      lines.pop();
+    }
+    return lines;
+  }, [report, width]);
   const historyLines = useMemo<TerminalLine[]>(() => history.flatMap((entry, index) => {
     const score = entry.score
       ? ` · Score ${entry.score.correctCount}/60 (${entry.score.percentage.toFixed(1)}%)`

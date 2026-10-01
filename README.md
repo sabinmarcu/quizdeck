@@ -3,13 +3,14 @@
 React + TypeScript application with React DOM/Vite and an Ink terminal interface.
 Phases 1–3 are implemented: transactional local persistence, shared Jotai state,
 Clipanion launch commands, searchable learning, and persisted/timed practice runs
-in both interfaces. Phase 4 covers the remaining cross-platform delivery matrix.
+in both interfaces. Phase 4 integration is exercised on Linux/Chromium; native
+Windows and Safari/iOS Safari verification remains an open delivery gate.
 
 [Application vision](docs/planning/vision.md) ·
 [Phase 1](docs/planning/01-foundations-and-launch.md) ·
 [Phase 2](docs/planning/02-learning-mode.md) ·
 [Phase 3](docs/planning/03-practice-mode.md) ·
-[Remaining implementation phases](docs/planning/vision.md#12-phased-implementation-plan)
+[Phase 4 evidence and open gates](docs/planning/04-integration-and-delivery.md)
 
 ## Development and launch
 
@@ -173,15 +174,17 @@ production origin have different browser databases.
 
 Zod validates the bank and persisted records. Immutable bank snapshots are stored
 once per SHA-256 content version. Versioned records, revision conflicts, and timing
-ownership are real persistence primitives for the later workflows; unsupported or
-corrupt data is reported, never automatically reset. The current storage schema
-is version 1; later versions require an explicit non-destructive migration.
+ownership protect current workflows; unsupported or corrupt data is reported,
+never automatically reset. The current storage schema is version 1; later versions
+require an explicit non-destructive migration.
 
 Each application instance owns a Jotai store backed by its platform adapter.
 Startup loads validated persisted state before enabling interaction. Transactions
 commit coupled changes before publishing atom projections; failed writes do not
 acknowledge progress. Browser post-commit notifications reload projections across
 tabs but do not grant writer ownership.
+SQLite observes native database changes once per second while a UI subscribes,
+refreshing another CLI's committed projection without granting writer ownership.
 
 Browser persistent retention is requested. Denied or unavailable retention means
 best-effort storage, not an in-memory fallback. Site-data clearing, private-session
