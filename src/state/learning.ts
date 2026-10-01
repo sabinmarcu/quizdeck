@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { z } from 'zod';
-import type { Bank } from '../data/bank';
+import type { QuestionSet } from '../data/question-set';
 import type { LearningAnswer } from '../data/records';
 import {
   actionErrorAtom,
@@ -29,7 +29,6 @@ export interface LearningDetail {
   description: string;
   status: LearningStatus;
   choices: LearningChoice[];
-  historical: boolean;
 }
 
 export const learningQueryAtom = atom('');
@@ -47,12 +46,12 @@ export function learningAnswerIndex(key: string): number | null {
   return index === -1 ? null : index % 4;
 }
 
-const questionIndexes = new WeakMap<Bank, ReadonlyMap<number, Bank['questions'][number]>>();
-function questionsById(bank: Bank) {
-  let index = questionIndexes.get(bank);
+const questionIndexes = new WeakMap<QuestionSet, ReadonlyMap<number, QuestionSet['questions'][number]>>();
+function questionsById(currentSet: QuestionSet) {
+  let index = questionIndexes.get(currentSet);
   if (!index) {
-    index = new Map(bank.questions.map((question) => [question.id, question]));
-    questionIndexes.set(bank, index);
+    index = new Map(currentSet.questions.map((question) => [question.id, question]));
+    questionIndexes.set(currentSet, index);
   }
   return index;
 }
@@ -71,7 +70,8 @@ export const learningRowsAtom = atom<LearningRow[]>((get) => {
   const query = get(learningQueryAtom).trim().toLocaleLowerCase();
   const filter = get(learningFilterAtom);
   const answers = get(answersAtom);
-  return startup.bank.questions.flatMap((question) => {
+  const questions = startup.set.questions.toSorted((first, second) => first.id - second.id);
+  return questions.flatMap((question) => {
     const status = answers.get(question.id)?.outcome ?? 'unanswered';
     const matchesStatus = filter === 'all' || status === filter
       || (filter === 'completed' && status !== 'unanswered');
@@ -91,7 +91,7 @@ export const learningCountsAtom = atom((get) => {
   const answers = get(answersAtom);
   let completed = 0;
   if (startup.status === 'ready') {
-    for (const question of startup.bank.questions) {
+    for (const question of startup.set.questions) {
       if (answers.has(question.id)) {
         completed += 1;
       }
@@ -99,7 +99,7 @@ export const learningCountsAtom = atom((get) => {
   }
   return {
     completed,
-    total: startup.status === 'ready' ? startup.bank.questions.length : 0,
+    total: startup.status === 'ready' ? startup.set.questionCount : 0,
   };
 });
 export const learningDetailAtom = atom<LearningDetail | null>((get) => {
@@ -109,11 +109,7 @@ export const learningDetailAtom = atom<LearningDetail | null>((get) => {
     return null;
   }
   const saved = get(answersAtom).get(id);
-  const sourceBank = saved ? startup.banks.get(saved.bankVersion) : startup.bank;
-  if (!sourceBank) {
-    throw new Error('Recorded question content is unavailable.');
-  }
-  const question = questionsById(sourceBank).get(id);
+  const question = questionsById(startup.set).get(id);
   if (!question) {
     return null;
   }
@@ -121,7 +117,6 @@ export const learningDetailAtom = atom<LearningDetail | null>((get) => {
     id: question.id,
     description: question.description,
     status: saved?.outcome ?? 'unanswered',
-    historical: sourceBank.version !== startup.bank.version,
     choices: question.answers.map((answer, index) => ({
       text: answer.text,
       feedback: saved
@@ -147,7 +142,7 @@ export const learningAdjacentAtom = atom((get) => {
 
 export const openLearningQuestionAtom = atom(null, (get, set, questionId: number) => {
   const startup = get(startupAtom);
-  if (startup.status !== 'ready' || !questionsById(startup.bank).has(questionId)) {
+  if (startup.status !== 'ready' || !questionsById(startup.set).has(questionId)) {
     return;
   }
   if (get(learningQuestionIdAtom) === null
@@ -183,7 +178,7 @@ export const answerLearningAtom = atom(null, async (get, set, input: LearningAns
     if (get(answersAtom).has(validated.questionId)) {
       throw new Error('This question is already answered. Reset all learning progress to answer again.');
     }
-    const question = questionsById(startup.bank).get(validated.questionId);
+    const question = questionsById(startup.set).get(validated.questionId);
     const choice = question?.answers[validated.answerIndex];
     if (!choice) {
       throw new Error('That answer is not available for this question.');
@@ -192,7 +187,6 @@ export const answerLearningAtom = atom(null, async (get, set, input: LearningAns
       kind: 'putLearning',
       answer: {
         questionId: validated.questionId,
-        bankVersion: startup.bank.version,
         answerIndex: validated.answerIndex,
         outcome: choice.correct ? 'correctly_answered' : 'incorrectly_answered',
       },

@@ -13,22 +13,22 @@ import {
   it,
   vi,
 } from 'vitest';
-import { loadBundledBank } from '../data/bank';
-import type { Bank } from '../data/bank';
+import { createFixtureSet } from '../data/question-set.fixture';
+import type { QuestionSet } from '../data/question-set';
 import { StorageConflictError } from '../data/storage';
 import type { ProgressStorage } from '../data/storage';
 import { SqliteProgressStorage } from './sqlite';
 
 let directory: string;
 let filename: string;
-let bank: Bank;
+let set: QuestionSet;
 const opened: ProgressStorage[] = [];
 
 beforeEach(async () => {
   await mkdir('tmp', { recursive: true });
   directory = await mkdtemp('tmp/sqlite-spec-');
   filename = path.join(directory, 'progress.sqlite');
-  bank = await loadBundledBank();
+  set = await createFixtureSet();
 });
 
 afterEach(async () => {
@@ -42,10 +42,9 @@ afterEach(async () => {
 });
 
 function correctAnswer(questionId: number) {
-  const question = bank.questions.find((entry) => entry.id === questionId)!;
+  const question = set.questions.find((entry) => entry.id === questionId)!;
   return {
     questionId,
-    bankVersion: bank.version,
     answerIndex: question.answers.findIndex((answer) => answer.correct),
     outcome: 'correctly_answered' as const,
   };
@@ -57,15 +56,15 @@ async function openSeeded() {
   await storage.commit({
     expectedRevision: 0,
     changes: [{
-      kind: 'putBank',
-      bank,
+      kind: 'seedSet',
+      set,
     }],
   });
   return storage;
 }
 
 describe('SQLite progress durability', () => {
-  it('keeps bank snapshots and recorded outcomes through closing and reopening', async () => {
+  it('keeps a set and recorded outcomes through closing and reopening', async () => {
     const storage = await openSeeded();
     await storage.commit({
       expectedRevision: 1,
@@ -79,8 +78,24 @@ describe('SQLite progress durability', () => {
     opened.push(reopened);
     const snapshot = await reopened.load();
     expect(snapshot.revision).toBe(2);
+    expect(snapshot.currentSet).toEqual(set);
     expect(snapshot.learning).toEqual([correctAnswer(1)]);
-    expect((await reopened.getBank(bank.version))?.questions[0]?.id).toBe(1);
+  });
+
+  it('captures a seed before asynchronous validation', async () => {
+    const storage = await SqliteProgressStorage.open({ path: filename });
+    opened.push(storage);
+    const input = {
+      expectedRevision: 0,
+      changes: [{
+        kind: 'seedSet' as const,
+        set: structuredClone(set),
+      }],
+    };
+    const committed = storage.commit(input);
+    (input.changes[0]!.set.questions as unknown as { description: string }[])[0]!.description = 'Changed after commit started';
+    const snapshot = await committed;
+    expect(snapshot.currentSet?.questions[0]?.description).toBe('Question 1');
   });
 
   it('rolls back a native failure after the first record write and does not publish it', async () => {
@@ -136,6 +151,28 @@ describe('SQLite progress durability', () => {
     expect((await second.load()).learning).toEqual([correctAnswer(1)]);
   });
 
+  it('allows exactly one concurrent seed', async () => {
+    const first = await SqliteProgressStorage.open({ path: filename });
+    const second = await SqliteProgressStorage.open({ path: filename });
+    opened.push(first, second);
+    await Promise.all([first.load(), second.load()]);
+    await first.commit({
+      expectedRevision: 0,
+      changes: [{
+        kind: 'seedSet',
+        set,
+      }],
+    });
+    await expect(second.commit({
+      expectedRevision: 0,
+      changes: [{
+        kind: 'seedSet',
+        set,
+      }],
+    })).rejects.toThrow(StorageConflictError);
+    expect((await second.load()).currentSet).toEqual(set);
+  });
+
   it('rejects unsupported versions without deleting existing progress', async () => {
     const storage = await openSeeded();
     await storage.commit({
@@ -154,15 +191,45 @@ describe('SQLite progress durability', () => {
     native.close();
   });
 
-  it('rejects corrupt persisted answers rather than resetting the database', async () => {
+  it('rejects records that reference questions absent from the set', async () => {
     const storage = await openSeeded();
     storage.close();
     const native = new DatabaseSync(filename);
-    native.prepare('INSERT INTO progress_learning VALUES (?, ?)').run('1', '{broken-json');
+    native.prepare('INSERT INTO progress_learning VALUES (?, ?)').run('71', JSON.stringify({
+      ...correctAnswer(1),
+      questionId: 71,
+    }));
     await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow();
-    expect(native.prepare('SELECT payload FROM progress_learning WHERE id = ?').get('1')?.payload).toBe('{broken-json');
+    expect(native.prepare('SELECT payload FROM progress_learning WHERE id = ?').get('71')?.payload).toContain('71');
     native.close();
   });
+
+  it('rejects a stored set with an invalid question count', async () => {
+    const storage = await openSeeded();
+    storage.close();
+    const native = new DatabaseSync(filename);
+    const corrupted = structuredClone(set) as { questionCount: number };
+    corrupted.questionCount += 1;
+    native.prepare('UPDATE progress_set SET payload = ? WHERE id = 1').run(JSON.stringify(corrupted));
+    await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow();
+    expect(native.prepare('SELECT payload FROM progress_set WHERE id = 1').get()?.payload).toContain('"questionCount":71');
+    native.close();
+  });
+
+  it('rejects a stored set with an invalid content hash', async () => {
+    const storage = await openSeeded();
+    storage.close();
+    const native = new DatabaseSync(filename);
+    const corrupted = structuredClone(set) as unknown as {
+      questions: { description: string }[];
+    };
+    corrupted.questions[0]!.description = 'Changed question';
+    native.prepare('UPDATE progress_set SET payload = ? WHERE id = 1').run(JSON.stringify(corrupted));
+    await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow();
+    expect(native.prepare('SELECT payload FROM progress_set WHERE id = 1').get()?.payload).toContain('Changed question');
+    native.close();
+  });
+
   it('notifies subscribers when another connection commits and stops after unsubscription or close', async () => {
     vi.useFakeTimers();
     try {

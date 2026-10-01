@@ -24,7 +24,7 @@ export class InkCommand extends Command {
   public static override paths = [Command.Default];
 
   public static override usage = Command.Usage({
-    description: 'Open the interactive Claude certification terminal application.',
+    description: 'Open the interactive Quizdeck question-set study tool.',
   });
 
   public async execute(): Promise<number> {

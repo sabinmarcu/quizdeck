@@ -555,9 +555,6 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
               Reset all learning progress to answer it again.
             </p>
           )}
-          {detail.historical && (
-            <p>Recorded feedback uses the original saved question version, not the updated bank.</p>
-          )}
           <div className={buttonRow}>
             <button className={secondaryButton} type="button" onClick={returnToList}>
               Back to list

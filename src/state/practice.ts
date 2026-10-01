@@ -1,8 +1,5 @@
 import { atom } from 'jotai';
-import {
-  practiceQuestionCount,
-  practiceReport,
-} from '../data/practice';
+import { practiceReport } from '../data/practice';
 import type { PracticeReport } from '../data/practice';
 import type { PracticeRun } from '../data/records';
 import { startupAtom } from './application';
@@ -33,6 +30,7 @@ export interface PracticeHistoryEntry {
   createdAt: number;
   status: PracticeRun['status'];
   answeredCount: number;
+  total: number;
   elapsedMs: number;
   score: null | { correctCount: number; percentage: number };
 }
@@ -65,6 +63,7 @@ export const practiceHistoryAtom = atom<PracticeHistoryEntry[]>((get) => {
     createdAt: run.createdAt,
     status: run.status,
     answeredCount: run.answers.length,
+    total: run.questionIds.length,
     elapsedMs: run.elapsedMs,
     score: run.status === 'completed' ? run.result : null,
   })).toSorted((first, second) => second.createdAt - first.createdAt);
@@ -75,9 +74,8 @@ export const practiceViewAtom = atom<PracticeView | null>((get) => {
   if (!run || run.status === 'completed' || startup.status !== 'ready') {
     return null;
   }
-  const bank = startup.banks.get(run.bankVersion);
   const questionId = run.questionIds[run.viewedPosition];
-  const question = bank?.questions.find((entry) => entry.id === questionId);
+  const question = startup.set.questions.find((entry) => entry.id === questionId);
   if (!question) {
     throw new Error('Saved practice question content is unavailable.');
   }
@@ -87,7 +85,7 @@ export const practiceViewAtom = atom<PracticeView | null>((get) => {
     runId: run.id,
     position: run.viewedPosition,
     nextUnanswered: run.nextUnanswered,
-    total: practiceQuestionCount,
+    total: run.questionIds.length,
     description: question.description,
     choices: question.answers.map((choice, index) => ({
       text: choice.text,
@@ -106,10 +104,6 @@ export const practiceReportAtom = atom<PracticeReport | null>((get) => {
   if (!run || run.status !== 'completed' || startup.status !== 'ready') {
     return null;
   }
-  const bank = startup.banks.get(run.bankVersion);
-  if (!bank) {
-    throw new Error('Saved report question bank is unavailable.');
-  }
-  return practiceReport(run, bank);
+  return practiceReport(run, startup.set);
 });
 

@@ -1,10 +1,10 @@
-# claude-certification
+# Quizdeck
 
-React + TypeScript application with React DOM/Vite and an Ink terminal interface.
-Learning, practice, transactional local persistence, shared Jotai state, and
-Clipanion launch commands are implemented in both interfaces. A planned migration
-turns this into a generic, data-free question-set tool with loadable JSON sets;
-native Windows and Safari/iOS Safari verification remains open.
+Generic question-set study tool built with React + TypeScript, React DOM/Vite,
+and an Ink terminal interface. Both interfaces start with a persisted three-question
+**Demo Set** and support learning, practice, timing, history, and reports. Phase 1
+is implemented; loading replacement JSON sets and distribution launchers remain
+in Phases 2 and 3. Native Windows and Safari/iOS Safari verification is waived.
 
 [Application vision](docs/planning/vision.md) ·
 [Phase 1 — Identity and question set](docs/planning/01-identity-and-question-set.md) ·
@@ -51,9 +51,10 @@ The top-level order is **Learn**, **Practice**, then **Extras**. Extras contains
   do not trigger character shortcuts. A denied persistent-retention request must
   be acknowledged before entering the shell.
 
-Extras → Overview reports the real bank and saved-record counts. Extras → Storage
-shows the backend, location, retention, and revision. Opening a menu does not
-answer a question, infer learning completion, or start a practice timer.
+Extras → Overview reports the current set's name, demo/file source, load time,
+question/answer counts, and saved-record counts. Extras → Storage shows the backend,
+location, retention, revision, and content hash.
+Opening a menu does not answer a question, infer learning completion, or start a practice timer.
 
 ## Learning mode
 
@@ -72,14 +73,10 @@ The current policy retains the first answer until **Reset all learning progress*
 there is no per-question reset or re-answer control. Reopening restores feedback.
 Learning has no timers or timing records.
 
-If source content changes, the list uses the current bank but an answered detail
-uses its recorded bank version for consistent choice/outcome/justification feedback.
-A historical-content notice explains the difference; completion is not silently
-reset. Global reset permits answering against the current bank.
 
 The global reset requires confirmation, defaults to Cancel, and clears only
-learning answers/statuses after a successful transaction. Practice records, bank
-snapshots, and their timing are untouched. Failed saves leave prior committed
+learning answers/statuses after a successful transaction. The current question set,
+practice records, and their timing are untouched. Failed saves leave prior committed
 progress intact and display the error; stale-session conflicts require reloading
 the application before trying again.
 
@@ -106,8 +103,9 @@ Permanent answer/status records survive application restarts.
 ## Practice mode
 
 Open **Practice** and start a new run or resume/review an existing one. Each new
-run saves a randomized order of **60 distinct questions** before presenting its
-first question. Runs are independent; starting another does not replace history.
+run saves a randomized order of **min(60, N) distinct questions**, where N is the
+current set's question count. The demo yields a three-question run. Runs are
+independent; starting another does not replace history.
 
 Activate an answer once with a choice button, Enter, or a–d/1–4. A successful
 transaction records the answer and advances to the next unanswered question.
@@ -115,9 +113,10 @@ Earlier questions can be inspected with h/l or previous/next controls, showing
 the recorded choice read-only. Future questions cannot be skipped, and neither
 correctness, explanations, a running score, nor dataset-ID mapping is shown early.
 
-Answer 60 commits completion and opens the saved report immediately. Reports
-contain all 60 questions in practice order, the **practice position → dataset ID**
-mapping, selected/correct choices, outcomes, and source explanations. Correct
+The final answer commits completion and opens the saved report immediately. Reports
+contain every question in the run's practice order, the **practice position → dataset ID**
+mapping, correct count out of the run length, percentage, selected/correct choices,
+outcomes, and source explanations. Correct
 statuses/choices are green and incorrect ones red, with textual labels. Completed
 runs and results are immutable and remain reviewable after restarting.
 
@@ -163,19 +162,22 @@ practice runs, answers, timings, and reports. SQLite and IndexedDB remain indepe
 
 | Interface | Backend | Location |
 | --- | --- | --- |
-| CLI, Linux/Unix | Native `node:sqlite` | Absolute `$XDG_DATA_HOME/claude-certification/progress.sqlite`, otherwise `~/.local/share/claude-certification/progress.sqlite` |
-| CLI, Windows | Native `node:sqlite` | Absolute `%LOCALAPPDATA%\claude-certification\progress.sqlite`, otherwise `AppData\Local\claude-certification\progress.sqlite` beneath the user's home directory |
-| Web | Native IndexedDB | Database `claude-certification` in the current browser profile and origin |
+| CLI, Linux/Unix | Native `node:sqlite` | Absolute `$XDG_DATA_HOME/quizdeck/progress.sqlite`, otherwise `~/.local/share/quizdeck/progress.sqlite` |
+| CLI, Windows | Native `node:sqlite` | Absolute `%LOCALAPPDATA%\quizdeck\progress.sqlite`, otherwise `AppData\Local\quizdeck\progress.sqlite` beneath the user's home directory |
+| Web | Native IndexedDB | Database `quizdeck` in the current browser profile and origin |
 
 The stores are independent. Running the CLI's `web` command does not open SQLite
 or share CLI progress with the browser. A Vite development origin and the fixed
 production origin have different browser databases.
 
-Zod validates the bank and persisted records. Immutable bank snapshots are stored
-once per SHA-256 content version. Versioned records, revision conflicts, and timing
-ownership protect current workflows; unsupported or corrupt data is reported,
-never automatically reset. The current storage schema is version 1; later versions
-require an explicit non-destructive migration.
+Zod validates the current question set and persisted records. Each store owns one
+set with its name, source, load time, question count, and SHA-256 content hash.
+Startup seeds the demo only when no set exists; concurrent first launches converge
+on the committed seed. Learning answers and practice question IDs must belong to
+that set. Revision conflicts and timing ownership protect current workflows;
+unsupported or corrupt data is reported, never automatically reset. Quizdeck's
+single-set storage schema is version 1. Previous-identifier stores are not read,
+migrated, or deleted.
 
 Each application instance owns a Jotai store backed by its platform adapter.
 Startup loads validated persisted state before enabling interaction. Transactions
@@ -190,10 +192,16 @@ best-effort storage, not an in-memory fallback. Site-data clearing, private-sess
 teardown, or browser eviction can still remove browser progress. Unavailable storage
 is an explicit startup error. SQLite files can likewise be deleted or lost.
 
-## Question bank
+## Question set
 
-`src/questions.json` contains **175 questions and 699 answer choices**. Source IDs
-and answer order are preserved. Every question has exactly one correct answer.
+Only three generic demo questions are bundled, as typed source in `src/data/demo.ts`.
+The demo includes a three-choice question. Its name is **Demo Set** and its source
+is `demo`. Each application persists its own copy on first launch; existing sets
+are never automatically replaced with the demo.
+
+Question arrays retain source IDs, wording, and answer order. Learning lists them
+by ascending ID. Every question has at least two choices and exactly one correct
+answer; blank justifications are shown as missing from the source.
 
 ```ts
 {
@@ -207,10 +215,10 @@ and answer order are preserved. Every question has exactly one correct answer.
 }[]
 ```
 
-Questions **3** and **57** omit six incorrect-choice explanations; their
-`justification` strings are empty. Question **140** has three choices, not four.
-Source wording and duplicates are retained; correctness reflects the supplied
-answer key, not an independent assessment.
+The former question bank is preserved locally at gitignored `sets/questions.json`
+and is no longer tracked, imported, or bundled. JSON set loading is Phase 2; this
+phase deliberately has no loading command, file picker, or disabled placeholder.
+Tests use generated fixtures rather than subject content.
 
 ## Checks and tooling
 
@@ -237,5 +245,3 @@ are marked optional.
 
 Known upstream tooling warning: the shared ESLint config requires ESLint 9 while
 its Unicorn dependency declares ESLint 10.4+. The configured lint command passes.
-The web build also reports a large initial chunk containing the bundled question
-bank and application dependencies; no chunk-warning suppression is configured.

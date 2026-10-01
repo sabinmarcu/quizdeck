@@ -24,5 +24,5 @@ export function resolveProgressStoragePath(
     ? configured
     : paths.join(home, ...(platform === 'win32' ? ['AppData', 'Local'] : ['.local', 'share']));
   const absoluteBase = z.string().refine(isAbsoluteDataPath, 'Progress storage requires an absolute application-data path').parse(base);
-  return paths.join(absoluteBase, 'claude-certification', 'progress.sqlite');
+  return paths.join(absoluteBase, 'quizdeck', 'progress.sqlite');
 }

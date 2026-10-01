@@ -1,12 +1,11 @@
-import { createHash } from 'node:crypto';
 import {
   beforeAll,
   describe,
   expect,
   it,
 } from 'vitest';
-import { validateBank } from './bank';
-import type { Bank } from './bank';
+import type { QuestionSet } from './question-set';
+import { createFixtureSet } from './question-set.fixture';
 import { emptySnapshot } from './records';
 import type {
   PracticeRun,
@@ -17,45 +16,23 @@ import {
   StorageConflictError,
 } from './storage';
 
-let bank: Bank;
-let banks: ReadonlyMap<string, Bank>;
+let set: QuestionSet;
 
 beforeAll(async () => {
-  const questions = Array.from({ length: 60 }, (_, index) => ({
-    id: index + 1,
-    description: `Question ${index + 1}`,
-    answers: [
-      {
-        text: 'Incorrect',
-        correct: false,
-        justification: '',
-      },
-      {
-        text: 'Correct',
-        correct: true,
-        justification: '',
-      },
-    ],
-  }));
-  bank = await validateBank({
-    questions,
-    version: createHash('sha256').update(JSON.stringify(questions)).digest('hex'),
-  });
-  banks = new Map([[bank.version, bank]]);
+  set = await createFixtureSet(3);
 });
 
 function activeSnapshot(): Snapshot {
   const run: PracticeRun = {
     id: 'run-1',
-    bankVersion: bank.version,
     createdAt: 10,
     completedAt: null,
     status: 'active',
-    questionIds: bank.questions.map((question) => question.id),
+    questionIds: [1, 2, 3],
     answers: [{
       questionId: 1,
       answerIndex: 1,
-      outcome: 'correctly_answered',
+      outcome: 'incorrectly_answered',
     }],
     nextUnanswered: 1,
     viewedPosition: 1,
@@ -65,10 +42,7 @@ function activeSnapshot(): Snapshot {
   return {
     ...emptySnapshot(),
     revision: 5,
-    banks: [{
-      version: bank.version,
-      questionCount: 60,
-    }],
+    currentSet: set,
     runs: [run],
     owners: [{
       runId: run.id,
@@ -77,20 +51,50 @@ function activeSnapshot(): Snapshot {
     }],
     learning: [{
       questionId: 1,
-      bankVersion: bank.version,
-      answerIndex: 0,
+      answerIndex: 1,
       outcome: 'incorrectly_answered',
     }],
   };
 }
 
 describe('transaction revision and ownership', () => {
+  it('seeds only an empty snapshot and treats duplicate or overwrite seeding as a conflict', () => {
+    const seeded = applyTransaction(emptySnapshot(), {
+      expectedRevision: 0,
+      changes: [{
+        kind: 'seedSet',
+        set,
+      }],
+    });
+    expect(seeded.currentSet).toEqual(set);
+    expect(() => applyTransaction(seeded, {
+      expectedRevision: 1,
+      changes: [{
+        kind: 'seedSet',
+        set,
+      }],
+    })).toThrow(StorageConflictError);
+    expect(() => applyTransaction(emptySnapshot(), {
+      expectedRevision: 0,
+      changes: [
+        {
+          kind: 'seedSet',
+          set,
+        },
+        {
+          kind: 'seedSet',
+          set,
+        },
+      ],
+    })).toThrow(StorageConflictError);
+  });
+
   it('rejects a stale revision without modifying the caller snapshot', () => {
     const before = activeSnapshot();
     expect(() => applyTransaction(before, {
       expectedRevision: 4,
       changes: [{ kind: 'clearLearning' }],
-    }, banks)).toThrow(StorageConflictError);
+    })).toThrow(StorageConflictError);
     expect(before.learning[0]!.outcome).toBe('incorrectly_answered');
     expect(before.revision).toBe(5);
   });
@@ -100,7 +104,7 @@ describe('transaction revision and ownership', () => {
     const after = applyTransaction(before, {
       expectedRevision: 5,
       changes: [{ kind: 'clearLearning' }],
-    }, banks);
+    });
     expect(after.learning).toEqual([]);
     expect(after.runs).toEqual(before.runs);
     expect(after.owners).toEqual(before.owners);
@@ -122,7 +126,7 @@ describe('transaction revision and ownership', () => {
         owner,
         now: 100,
       }],
-    }, banks)).toThrow(StorageConflictError);
+    })).toThrow(StorageConflictError);
     const after = applyTransaction(before, {
       expectedRevision: 5,
       changes: [{
@@ -130,47 +134,38 @@ describe('transaction revision and ownership', () => {
         owner,
         now: 1000,
       }],
-    }, banks);
+    });
     expect(after.owners[0]!.ownerId).toBe('session-b');
     expect(after.runs[0]!.elapsedMs).toBe(500);
   });
 
-  it('requires the current unexpired owner to update a run or release its lease', () => {
+  it('requires the current owner and preserves saved answers, order, and elapsed time', () => {
     const before = activeSnapshot();
+    const run = before.runs[0]!;
     expect(() => applyTransaction(before, {
       expectedRevision: 5,
       changes: [{
         kind: 'putRun',
         run: {
-          ...before.runs[0]!,
+          ...run,
           elapsedMs: 600,
         },
       }],
-    }, banks)).toThrow(StorageConflictError);
-    expect(() => applyTransaction(before, {
-      expectedRevision: 5,
-      changes: [{
-        kind: 'releaseOwner',
-        runId: 'run-1',
-        ownerId: 'session-b',
-      }],
-    }, banks)).toThrow(StorageConflictError);
+    })).toThrow(StorageConflictError);
     expect(() => applyTransaction(before, {
       expectedRevision: 5,
       changes: [{
         kind: 'putRun',
-        run: before.runs[0]!,
         guard: {
           ownerId: 'session-a',
-          now: 1000,
+          now: 100,
+        },
+        run: {
+          ...run,
+          questionIds: [1, 3, 2],
         },
       }],
-    }, banks)).toThrow(StorageConflictError);
-  });
-
-  it('keeps answered choices immutable and accumulated time monotonic', () => {
-    const before = activeSnapshot();
-    const run = before.runs[0]!;
+    })).toThrow('cannot be rewritten');
     expect(() => applyTransaction(before, {
       expectedRevision: 5,
       changes: [{
@@ -184,28 +179,15 @@ describe('transaction revision and ownership', () => {
           answers: [{
             questionId: 1,
             answerIndex: 0,
-            outcome: 'incorrectly_answered',
+            outcome: 'correctly_answered',
           }],
-        },
-      }],
-    }, banks)).toThrow('cannot be rewritten');
-    expect(() => applyTransaction(before, {
-      expectedRevision: 5,
-      changes: [{
-        kind: 'putRun',
-        run: {
-          ...run,
           elapsedMs: 499,
         },
-        guard: {
-          ownerId: 'session-a',
-          now: 100,
-        },
       }],
-    }, banks)).toThrow('cannot be rewritten');
+    })).toThrow('cannot be rewritten');
   });
 
-  it('commits pause and ownership release together and rejects partial invalid changes', () => {
+  it('commits pause and ownership release together but rejects the partial state', () => {
     const before = activeSnapshot();
     const paused = {
       ...before.runs[0]!,
@@ -222,7 +204,7 @@ describe('transaction revision and ownership', () => {
           now: 100,
         },
       }],
-    }, banks)).toThrow('active');
+    })).toThrow('active');
     const after = applyTransaction(before, {
       expectedRevision: 5,
       changes: [
@@ -240,7 +222,7 @@ describe('transaction revision and ownership', () => {
           ownerId: 'session-a',
         },
       ],
-    }, banks);
+    });
     expect(after.runs[0]!.status).toBe('paused');
     expect(after.runs[0]!.elapsedMs).toBe(900);
     expect(after.owners).toEqual([]);

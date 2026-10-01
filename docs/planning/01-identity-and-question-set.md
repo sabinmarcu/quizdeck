@@ -1,6 +1,6 @@
 # Phase 1 — Quizdeck identity and owned question set
 
-**Status:** planned. **Dependencies:** none.
+**Status:** implemented. **Dependencies:** none.
 
 [Vision](vision.md) · Next: [Phase 2 — Loading question sets](02-loading-question-sets.md)
 
@@ -120,6 +120,13 @@ alternate file formats. No changes to the omnirepo theme packages.
   untouched after launching.
 - Restart both applications mid-run; resume and complete with correct `L` bounds.
 - Run `yarn test`, `yarn typecheck`, `yarn lint`, and `yarn build`.
+
+Verified on Linux with the pinned toolchain: 71 tests, typecheck, lint fixes, and
+both production builds pass. Real Ink and Chromium sessions show Demo Set,
+complete three-question practice reports, and resume the same run after a mid-run
+restart. The isolated previous-identifier SQLite file and existing browser
+database remained unchanged. The relocated question file retains its original
+working-tree bytes. Native Windows and Safari/iOS Safari verification is waived.
 
 ## Exit criteria
 

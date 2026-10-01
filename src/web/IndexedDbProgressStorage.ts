@@ -1,9 +1,7 @@
 import { z } from 'zod';
-import { validateBank } from '../data/bank';
-import type { Bank } from '../data/bank';
+import { validateQuestionSet } from '../data/question-set';
 import {
   emptySnapshot,
-  snapshotSchema,
   validateSnapshot,
 } from '../data/records';
 import type { Snapshot } from '../data/records';
@@ -18,9 +16,8 @@ import type {
 } from '../data/storage';
 
 const metadataStore = 'metadata';
-const banksStore = 'banks';
 const snapshotKey = 'snapshot';
-export const defaultProgressDatabaseName = 'claude-certification';
+export const defaultProgressDatabaseName = 'quizdeck';
 const messageSchema = z.strictObject({
   type: z.literal('progress-committed'),
   databaseName: z.string().min(1),
@@ -44,6 +41,17 @@ function transactionResult(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+async function validateStoredSnapshot(input: unknown): Promise<Snapshot> {
+  const snapshot = validateSnapshot(input);
+  if (snapshot.currentSet === null) {
+    return snapshot;
+  }
+  return {
+    ...snapshot,
+    currentSet: await validateQuestionSet(snapshot.currentSet),
+  };
+}
+
 async function readSnapshot(database: IDBDatabase): Promise<Snapshot> {
   const transaction = database.transaction(metadataStore, 'readonly');
   const complete = transactionResult(transaction);
@@ -53,34 +61,31 @@ async function readSnapshot(database: IDBDatabase): Promise<Snapshot> {
   if (value === undefined) {
     throw new Error('Progress storage metadata is missing or corrupt.');
   }
-  return snapshotSchema.parse(value);
+  return validateStoredSnapshot(value);
 }
 
 function writeTransaction(
   database: IDBDatabase,
   expected: Snapshot,
   input: Transaction,
-  banks: ReadonlyMap<string, Bank>,
-  putBanks: readonly Bank[],
 ): Promise<Snapshot> {
   return new Promise((resolve, reject) => {
-    const transaction = database.transaction([metadataStore, banksStore], 'readwrite');
+    const transaction = database.transaction(metadataStore, 'readwrite');
     const metadata = transaction.objectStore(metadataStore);
-    const bankStore = transaction.objectStore(banksStore);
     let failure: unknown;
     let next: Snapshot | undefined;
     const request = metadata.get(snapshotKey);
     request.addEventListener('success', () => {
       try {
-        const current = snapshotSchema.parse(request.result);
+        const current = validateSnapshot(request.result);
         if (current.revision !== expected.revision) {
           throw new StorageConflictError();
         }
-        next = applyTransaction(validateSnapshot(current, banks), input, banks);
-        metadata.put(next, snapshotKey);
-        for (const bank of putBanks) {
-          bankStore.add(bank);
+        if (JSON.stringify(current.currentSet) !== JSON.stringify(expected.currentSet)) {
+          throw new StorageConflictError('Question set changed during preparation. Reload storage.');
         }
+        next = applyTransaction(current, input);
+        metadata.put(next, snapshotKey);
       } catch (error) {
         failure = error;
         transaction.abort();
@@ -111,9 +116,6 @@ function openDatabase(name: string): Promise<IDBDatabase> {
       const database = request.result;
       if (!database.objectStoreNames.contains(metadataStore)) {
         database.createObjectStore(metadataStore);
-      }
-      if (!database.objectStoreNames.contains(banksStore)) {
-        database.createObjectStore(banksStore, { keyPath: 'version' });
       }
       if (request.transaction && event.oldVersion === 0) {
         request.transaction.objectStore(metadataStore).put(emptySnapshot(), snapshotKey);
@@ -156,8 +158,6 @@ async function requestRetention(): Promise<ProgressStorage['retention']> {
 class IndexedProgressStorage implements ProgressStorage {
   public readonly location: string;
 
-  private readonly banks = new Map<string, Bank>();
-
   private readonly listeners = new Set<() => void>();
 
   private readonly channel: BroadcastChannel;
@@ -170,7 +170,7 @@ class IndexedProgressStorage implements ProgressStorage {
     public readonly retention: ProgressStorage['retention'],
   ) {
     this.location = `IndexedDB ${databaseName} at ${document.location.origin}`;
-    this.channel = new BroadcastChannel(`claude-certification-progress:${databaseName}`);
+    this.channel = new BroadcastChannel(`quizdeck-progress:${databaseName}`);
     this.database.addEventListener('versionchange', () => {
       this.notify();
       this.close();
@@ -183,62 +183,29 @@ class IndexedProgressStorage implements ProgressStorage {
     });
   }
 
-  public async getBank(version: string): Promise<Bank | undefined> {
-    this.assertOpen();
-    const cached = this.banks.get(version);
-    if (cached) {
-      return cached;
-    }
-    const transaction = this.database.transaction(banksStore, 'readonly');
-    const complete = transactionResult(transaction);
-    const [value] = await Promise.all([
-      requestResult(transaction.objectStore(banksStore).get(version)), complete,
-    ]);
-    if (value === undefined) {
-      return undefined;
-    }
-    const bank = await validateBank(value);
-    if (bank.version !== version) {
-      throw new Error('Persisted bank does not match its catalog identity.');
-    }
-    this.banks.set(version, bank);
-    return bank;
-  }
-
   public async load(): Promise<Snapshot> {
     this.assertOpen();
-    const snapshot = await readSnapshot(this.database);
-    for (const entry of snapshot.banks) {
-      if (!await this.getBank(entry.version)) {
-        throw new Error('Persisted bank catalog references a missing snapshot.');
-      }
-    }
-    return validateSnapshot(snapshot, this.banks);
+    return readSnapshot(this.database);
   }
 
   public async commit(input: Transaction): Promise<Snapshot> {
     this.assertOpen();
-    const transaction = transactionSchema.parse(input);
-    const staged = new Map<string, Bank>();
-    for (const change of transaction.changes) {
-      if (change.kind === 'putBank') {
-        staged.set(change.bank.version, await validateBank(change.bank));
-      }
-    }
+    const parsed = transactionSchema.parse(input);
+    const transaction: Transaction = {
+      ...parsed,
+      changes: await Promise.all(parsed.changes.map(async (change) => {
+        if (change.kind !== 'seedSet') {
+          return change;
+        }
+        return {
+          ...change,
+          set: await validateQuestionSet(change.set),
+        };
+      })),
+    };
     const current = await this.load();
-    const banks = new Map(this.banks);
-    const putBanks: Bank[] = [];
-    for (const [version, bank] of staged) {
-      if (!banks.has(version)) {
-        putBanks.push(bank);
-      }
-      banks.set(version, bank);
-    }
     this.assertOpen();
-    const next = await writeTransaction(this.database, current, transaction, banks, putBanks);
-    for (const [version, bank] of staged) {
-      this.banks.set(version, bank);
-    }
+    const next = await writeTransaction(this.database, current, transaction);
     if (!this.closed) {
       this.notify();
       this.channel.postMessage({
@@ -262,7 +229,6 @@ class IndexedProgressStorage implements ProgressStorage {
 
     this.closed = true;
     this.listeners.clear();
-    this.banks.clear();
     this.channel.close();
     this.database.close();
   }

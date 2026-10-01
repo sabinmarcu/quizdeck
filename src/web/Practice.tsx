@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { formatPracticeDuration } from '../data/practice';
+import { startupAtom } from '../state/application';
 import { learningAnswerIndex } from '../state/learning';
 import {
   answerPracticeAtom,
@@ -77,6 +78,8 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
   const report = useAtomValue(practiceReportAtom);
   const busy = useAtomValue(practiceBusyAtom);
   const practiceError = useAtomValue(practiceErrorAtom);
+  const startup = useAtomValue(startupAtom);
+  const currentTotal = startup.status === 'ready' ? Math.min(60, startup.set.questionCount) : 0;
   const manuallyPaused = useRef(false);
   const start = useSetAtom(startPracticeAtom);
   const open = useSetAtom(openPracticeAtom);
@@ -455,7 +458,7 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
               {' '}
               of
               {' '}
-              {report.questions.length}
+              {report.total}
               {' '}
               correct
             </span>
@@ -661,7 +664,13 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
         >
           Practice
         </h2>
-        <p>Complete 60 questions in a saved randomized order. Answers are recorded immediately.</p>
+        <p>
+          Complete
+          {' '}
+          {currentTotal}
+          {' '}
+          questions in a saved randomized order. Answers are recorded immediately.
+        </p>
       </header>
       {practiceError && <p className={error} role="alert">{practiceError}</p>}
       <div className={controls}>
@@ -703,7 +712,11 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                 <span>
                   {entry.answeredCount}
                   {' '}
-                  of 60 answered ·
+                  of
+                  {' '}
+                  {entry.total}
+                  {' '}
+                  answered ·
                   {formatPracticeDuration(entry.elapsedMs)}
                 </span>
                 {entry.score && (

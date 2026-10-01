@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
@@ -14,7 +13,8 @@ import {
   it,
 } from 'vitest';
 import { SqliteProgressStorage } from '../cli/sqlite';
-import { validateBank } from '../data/bank';
+import { createQuestionSet } from '../data/question-set';
+import { createFixtureSet } from '../data/question-set.fixture';
 import type { PracticeRun } from '../data/records';
 import {
   commitAtom,
@@ -48,6 +48,30 @@ beforeEach(async () => {
   await mkdir('tmp', { recursive: true });
   directory = await mkdtemp('tmp/learning-spec-');
   filename = path.join(directory, 'progress.sqlite');
+  const fixture = await createFixtureSet(8);
+  const currentSet = await createQuestionSet(fixture.questions.map((question) => (question.id === 3
+    ? {
+      ...question,
+      answers: [...question.answers, {
+        text: 'Third choice',
+        correct: false,
+        justification: '',
+      }],
+    }
+    : question)), {
+    name: fixture.name,
+    source: fixture.source,
+    loadedAt: fixture.loadedAt,
+  });
+  const storage = await SqliteProgressStorage.open({ path: filename });
+  await storage.commit({
+    expectedRevision: 0,
+    changes: [{
+      kind: 'seedSet',
+      set: currentSet,
+    }],
+  });
+  storage.close();
   session = createAppSession(() => SqliteProgressStorage.open({ path: filename }));
   await session.start();
 });
@@ -69,7 +93,7 @@ function ready() {
 }
 
 async function record(questionId: number, correct: boolean) {
-  const question = ready().bank.questions.find((entry) => entry.id === questionId)!;
+  const question = ready().set.questions.find((entry) => entry.id === questionId)!;
   session.store.set(openLearningQuestionAtom, questionId);
   return session.store.set(answerLearningAtom, {
     questionId,
@@ -109,7 +133,7 @@ describe('persisted learning workflow', () => {
     expect(selected?.feedback?.correct).toBe(false);
     expect(session.store.get(learningCountsAtom)).toEqual({
       completed: 2,
-      total: 175,
+      total: ready().set.questionCount,
     });
     expect(ready().snapshot.learning.every((answer) => !('elapsedMs' in answer))).toBe(true);
   });
@@ -117,10 +141,9 @@ describe('persisted learning workflow', () => {
   it('uses description and source IDs for search, with status filters and independent totals', async () => {
     await record(1, true);
     await record(3, false);
-    session.store.set(learningQueryAtom, 'SYNTHESIS AGENT');
+    session.store.set(learningQueryAtom, 'QUESTION 1');
     const descriptionMatches = session.store.get(learningRowsAtom);
-    expect(descriptionMatches.some((row) => row.id === 1)).toBe(true);
-    expect(descriptionMatches.every((row) => row.description.toLowerCase().includes('synthesis agent'))).toBe(true);
+    expect(descriptionMatches.map((row) => row.id)).toEqual([1]);
     session.store.set(learningQueryAtom, '');
     session.store.set(learningFilterAtom, 'completed');
     expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1, 3]);
@@ -129,24 +152,24 @@ describe('persisted learning workflow', () => {
     session.store.set(learningFilterAtom, 'correctly_answered');
     expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
     session.store.set(learningFilterAtom, 'all');
-    session.store.set(learningQueryAtom, '140');
-    expect(session.store.get(learningRowsAtom).some((row) => row.id === 140)).toBe(true);
+    session.store.set(learningQueryAtom, '8');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([8]);
     session.store.set(learningQueryAtom, 'no matching study content anywhere');
     expect(session.store.get(learningRowsAtom)).toEqual([]);
     expect(session.store.get(learningCountsAtom)).toEqual({
       completed: 2,
-      total: 175,
+      total: ready().set.questionCount,
     });
-    session.store.set(learningQueryAtom, ready().bank.questions[0]!.answers[0]!.justification);
+    session.store.set(learningQueryAtom, ready().set.questions[0]!.answers[0]!.justification);
     expect(session.store.get(learningRowsAtom).some((row) => row.id === 1)).toBe(false);
   });
 
   it('preserves list context and restores saved feedback after a new application session', async () => {
-    session.store.set(learningQueryAtom, 'coordinator');
+    session.store.set(learningQueryAtom, 'question');
     session.store.set(learningFilterAtom, 'unanswered');
     await record(1, true);
     session.store.set(learningQuestionIdAtom, null);
-    expect(session.store.get(learningQueryAtom)).toBe('coordinator');
+    expect(session.store.get(learningQueryAtom)).toBe('question');
     expect(session.store.get(learningFilterAtom)).toBe('unanswered');
     expect(session.store.get(learningFocusedIdAtom)).toBe(1);
     session.close();
@@ -159,19 +182,19 @@ describe('persisted learning workflow', () => {
   });
 
   it('rejects a phantom fourth choice and a changed answer without modifying committed progress', async () => {
-    session.store.set(openLearningQuestionAtom, 140);
+    session.store.set(openLearningQuestionAtom, 3);
     expect(session.store.get(learningDetailAtom)!.choices).toHaveLength(3);
     const before = ready().snapshot;
     expect(await session.store.set(answerLearningAtom, {
-      questionId: 140,
+      questionId: 3,
       answerIndex: 3,
     })).toBe(false);
     expect(ready().snapshot.learning).toEqual([]);
     expect(ready().snapshot.revision).toBe(before.revision);
-    await record(140, true);
+    await record(3, true);
     const saved = ready().snapshot;
     expect(await session.store.set(answerLearningAtom, {
-      questionId: 140,
+      questionId: 3,
       answerIndex: 0,
     })).toBe(false);
     expect(ready().snapshot.learning).toEqual(saved.learning);
@@ -195,7 +218,7 @@ describe('persisted learning workflow', () => {
 
   it('retains the first answer during duplicate activation and rejects backend overwrites', async () => {
     session.store.set(openLearningQuestionAtom, 1);
-    const index = ready().bank.questions[0]!.answers.findIndex((choice) => choice.correct);
+    const index = ready().set.questions[0]!.answers.findIndex((choice) => choice.correct);
     const first = session.store.set(answerLearningAtom, {
       questionId: 1,
       answerIndex: index,
@@ -221,11 +244,10 @@ describe('persisted learning workflow', () => {
     const startup = ready();
     const run: PracticeRun = {
       id: 'saved-run',
-      bankVersion: startup.bank.version,
       createdAt: 100,
       completedAt: null,
       status: 'paused',
-      questionIds: startup.bank.questions.slice(0, 60).map((question) => question.id),
+      questionIds: startup.set.questions.map((question) => question.id),
       answers: [],
       nextUnanswered: 0,
       viewedPosition: 0,
@@ -256,7 +278,7 @@ describe('persisted learning workflow', () => {
     expect(session.store.get(learningResetOpenAtom)).toBe(false);
     expect(ready().snapshot.learning).toEqual([]);
     expect(ready().snapshot.runs).toEqual([run]);
-    expect(ready().snapshot.banks).toEqual(before.banks);
+    expect(ready().snapshot.currentSet).toEqual(before.currentSet);
     session.close();
     const reopened = await SqliteProgressStorage.open({ path: filename });
     const saved = await reopened.load();
@@ -284,64 +306,5 @@ describe('persisted learning workflow', () => {
       previous: 1,
       next: 4,
     });
-  });
-
-  it('keeps historical completion and feedback consistent with the saved question bank', async () => {
-    const questions = [{
-      id: 1,
-      description: 'Original recorded question content',
-      answers: [
-        {
-          text: 'Original correct choice',
-          correct: true,
-          justification: 'Original explanation',
-        },
-        {
-          text: 'Original wrong choice',
-          correct: false,
-          justification: '',
-        },
-      ],
-    }];
-    const oldBank = await validateBank({
-      questions,
-      version: createHash('sha256').update(JSON.stringify(questions)).digest('hex'),
-    });
-    await session.store.set(commitAtom, [
-      {
-        kind: 'putBank',
-        bank: oldBank,
-      },
-      {
-        kind: 'putLearning',
-        answer: {
-          questionId: 1,
-          bankVersion: oldBank.version,
-          answerIndex: 0,
-          outcome: 'correctly_answered',
-        },
-      },
-    ]);
-    session.close();
-    session = createAppSession(() => SqliteProgressStorage.open({ path: filename }));
-    await session.start();
-    session.store.set(openLearningQuestionAtom, 1);
-    const detail = session.store.get(learningDetailAtom)!;
-    expect(detail.historical).toBe(true);
-    expect(detail.description).toBe('Original recorded question content');
-    expect(detail.status).toBe('correctly_answered');
-    expect(detail.choices[0]!.feedback).toEqual({
-      selected: true,
-      correct: true,
-      justification: 'Original explanation',
-    });
-    const currentDescription = ready().bank.questions[0]!.description;
-    expect(session.store.get(learningRowsAtom)[0]!.description).toBe(currentDescription);
-    session.store.set(learningResetOpenAtom, true);
-    await session.store.set(resetLearningAtom);
-    const reset = session.store.get(learningDetailAtom)!;
-    expect(reset.historical).toBe(false);
-    expect(reset.description).toBe(currentDescription);
-    expect(reset.choices.every((choice) => choice.feedback === null)).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 {
-  "name": "claude-certification",
+  "name": "quizdeck",
   "private": true,
   "type": "module",
   "packageManager": "yarn@4.18.1",

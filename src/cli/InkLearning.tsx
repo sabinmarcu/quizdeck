@@ -143,7 +143,6 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
       title: `Question ${detail.id} · ${learningStatusLabels[detail.status]}`,
       statusColor: statusColors[detail.status],
       description: detail.description,
-      notice: detail.historical ? 'Recorded feedback uses the original saved question version.' : undefined,
       choices: detail.choices,
       canAnswer: detail.status === 'unanswered',
       afterword: detail.status !== 'unanswered'

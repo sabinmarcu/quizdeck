@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { bankSchema } from './bank';
-import type { Bank } from './bank';
+import { questionSetSchema } from './question-set';
 import {
   learningSchema,
   ownerSchema,
@@ -18,8 +17,8 @@ export const transactionSchema = z.strictObject({
   expectedRevision: instant,
   changes: z.array(z.discriminatedUnion('kind', [
     z.strictObject({
-      kind: z.literal('putBank'),
-      bank: bankSchema,
+      kind: z.literal('seedSet'),
+      set: questionSetSchema,
     }),
     z.strictObject({
       kind: z.literal('putLearning'),
@@ -50,7 +49,6 @@ export interface ProgressStorage {
   readonly location: string;
   readonly retention: 'persistent' | 'best-effort';
   load(): Promise<Snapshot>;
-  getBank(version: string): Promise<Bank | undefined>;
   commit(transaction: Transaction): Promise<Snapshot>;
   subscribe(listener: () => void): () => void;
   close(): void;
@@ -63,29 +61,22 @@ export class StorageConflictError extends Error {
   }
 }
 
-export function applyTransaction(
-  current: Snapshot,
-  input: Transaction,
-  banks: ReadonlyMap<string, Bank>,
-): Snapshot {
+export function applyTransaction(current: Snapshot, input: Transaction): Snapshot {
   const transaction = transactionSchema.parse(input);
   if (current.revision !== transaction.expectedRevision) {
     throw new StorageConflictError();
   }
-  const summaries = new Map(current.banks.map((bank) => [bank.version, bank]));
+  let { currentSet } = current;
   const learning = new Map(current.learning.map((answer) => [answer.questionId, answer]));
   const runs = new Map(current.runs.map((run) => [run.id, run]));
   const owners = new Map(current.owners.map((owner) => [owner.runId, owner]));
   for (const change of transaction.changes) {
     switch (change.kind) {
-      case 'putBank': {
-        if (!banks.has(change.bank.version)) {
-          throw new Error('Bank snapshot has not been validated');
+      case 'seedSet': {
+        if (currentSet !== null) {
+          throw new StorageConflictError('A question set has already been seeded.');
         }
-        summaries.set(change.bank.version, {
-          version: change.bank.version,
-          questionCount: change.bank.questions.length,
-        });
+        currentSet = change.set;
         break;
       }
       case 'putLearning': {
@@ -128,8 +119,8 @@ export function applyTransaction(
             throw new StorageConflictError('Updating a practice run requires its active ownership.');
           }
           if (previous.status === 'completed'
-            || previous.bankVersion !== change.run.bankVersion
             || previous.createdAt !== change.run.createdAt
+            || previous.questionIds.length !== change.run.questionIds.length
             || previous.questionIds.some((id, index) => id !== change.run.questionIds[index])
             || change.run.elapsedMs < previous.elapsedMs
             || previous.answers.some((answer, index) => {
@@ -137,7 +128,7 @@ export function applyTransaction(
               return !next || answer.questionId !== next.questionId
                 || answer.answerIndex !== next.answerIndex || answer.outcome !== next.outcome;
             })) {
-            throw new Error('Saved practice answers, bank, order, and results cannot be rewritten');
+            throw new Error('Saved practice answers, order, and results cannot be rewritten');
           }
         }
         runs.set(change.run.id, change.run);
@@ -151,9 +142,9 @@ export function applyTransaction(
   return validateSnapshot({
     schemaVersion: 1,
     revision: current.revision + 1,
-    banks: [...summaries.values()],
+    currentSet,
     learning: [...learning.values()],
     runs: [...runs.values()],
     owners: [...owners.values()],
-  }, banks);
+  });
 }

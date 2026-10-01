@@ -1,5 +1,5 @@
 import type {
-  BankInfo,
+  SetInfo,
   Startup,
 } from '../state/application';
 import type { ExtrasSection } from '../state/navigation';
@@ -15,12 +15,12 @@ export namespace Panel {
   export interface Props {
     section: ExtrasSection;
     startup: Extract<Startup, { status: 'ready' }>;
-    bankInfo: BankInfo;
+    setInfo: SetInfo;
   }
 }
 
 export function Panel({
-  section, startup, bankInfo,
+  section, startup, setInfo,
 }: Panel.Props) {
   if (section === 'Storage') {
     return (
@@ -33,6 +33,7 @@ export function Panel({
           <Detail term="Location" value={startup.location} />
           <Detail term="Retention" value={startup.retention} />
           <Detail term="Revision" value={String(startup.snapshot.revision)} />
+          <Detail term="Content hash" value={startup.set.contentHash} />
         </dl>
       </section>
     );
@@ -55,13 +56,16 @@ export function Panel({
     <section className={panel} aria-labelledby="overview-heading">
       <h2 id="overview-heading">Overview</h2>
       <dl className={details}>
-        <Detail term="Questions" value={String(bankInfo.questionCount)} />
-        <Detail term="Answers" value={String(bankInfo.answerCount)} />
-        <Detail term="Answers without source explanations" value={String(bankInfo.missingExplanationCount)} />
+        <Detail term="Question set" value={startup.set.name} />
+        <Detail term="Source" value={startup.set.source} />
+        <Detail term="Loaded" value={new Date(startup.set.loadedAt).toLocaleString()} />
+        <Detail term="Questions" value={String(setInfo.questionCount)} />
+        <Detail term="Answers" value={String(setInfo.answerCount)} />
+        <Detail term="Answers without source explanations" value={String(setInfo.missingExplanationCount)} />
         <Detail term="Saved learning answers" value={String(startup.snapshot.learning.length)} />
         <Detail term="Saved practice runs" value={String(startup.snapshot.runs.length)} />
       </dl>
-      <p>This screen reports your local question bank and saved records.</p>
+      <p>This screen reports your current question set and saved records.</p>
     </section>
   );
 }

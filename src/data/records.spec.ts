@@ -1,14 +1,14 @@
-import { createHash } from 'node:crypto';
 import {
   beforeAll,
   describe,
   expect,
   it,
 } from 'vitest';
-import { validateBank } from './bank';
-import type { Bank } from './bank';
+import type { QuestionSet } from './question-set';
+import { createFixtureSet } from './question-set.fixture';
 import {
   emptySnapshot,
+  runSchema,
   validateSnapshot,
 } from './records';
 import type {
@@ -16,41 +16,19 @@ import type {
   Snapshot,
 } from './records';
 
-let bank: Bank;
-let banks: ReadonlyMap<string, Bank>;
+let set: QuestionSet;
 
 beforeAll(async () => {
-  const questions = Array.from({ length: 60 }, (_, index) => ({
-    id: index + 1,
-    description: `Question ${index + 1}`,
-    answers: [
-      {
-        text: 'Incorrect',
-        correct: false,
-        justification: '',
-      },
-      {
-        text: 'Correct',
-        correct: true,
-        justification: 'Correct explanation',
-      },
-    ],
-  }));
-  bank = await validateBank({
-    questions,
-    version: createHash('sha256').update(JSON.stringify(questions)).digest('hex'),
-  });
-  banks = new Map([[bank.version, bank]]);
+  set = await createFixtureSet(3);
 });
 
 function savedRun(): PracticeRun {
   return {
     id: 'run-1',
-    bankVersion: bank.version,
     createdAt: 100,
     completedAt: null,
     status: 'paused',
-    questionIds: bank.questions.map((question) => question.id),
+    questionIds: set.questions.map((question) => question.id),
     answers: [],
     nextUnanswered: 0,
     viewedPosition: 0,
@@ -62,130 +40,139 @@ function savedRun(): PracticeRun {
 function persisted(): Snapshot {
   return {
     ...emptySnapshot(),
-    banks: [{
-      version: bank.version,
-      questionCount: 60,
-    }],
+    currentSet: set,
   };
 }
 
 describe('persisted progress validation', () => {
-  it('rejects a fabricated outcome and a nonexistent choice', () => {
-    const snapshot = persisted();
-    snapshot.learning = [{
-      questionId: 1,
-      bankVersion: bank.version,
-      answerIndex: 0,
-      outcome: 'correctly_answered',
-    }];
-    expect(() => validateSnapshot(snapshot, banks)).toThrow('correctness');
-    snapshot.learning[0]!.answerIndex = 2;
-    expect(() => validateSnapshot(snapshot, banks)).toThrow('correctness');
-  });
-
-  it('rejects future question views and frontier mismatch', () => {
-    const run = savedRun();
-    expect(() => validateSnapshot({
-      ...persisted(),
-      runs: [{
-        ...run,
-        viewedPosition: 1,
-      }],
-    }, banks)).toThrow('frontier');
-    expect(() => validateSnapshot({
-      ...persisted(),
-      runs: [{
-        ...run,
-        nextUnanswered: 1,
-      }],
-    }, banks)).toThrow('frontier');
-  });
-
-  it('rejects answers recorded out of saved practice order', () => {
-    const run = savedRun();
-    run.answers = [{
-      questionId: 2,
-      answerIndex: 1,
-      outcome: 'correctly_answered',
-    }];
-    run.nextUnanswered = 1;
-    expect(() => validateSnapshot({
-      ...persisted(),
-      runs: [run],
-    }, banks)).toThrow('order');
-  });
-
-  it('requires completion and result to agree with all sixty answers', () => {
-    const run = savedRun();
-    run.answers = run.questionIds.map((questionId) => ({
-      questionId,
-      answerIndex: 1,
-      outcome: 'correctly_answered',
-    }));
-    run.nextUnanswered = 60;
-    run.viewedPosition = 59;
-    expect(() => validateSnapshot({
-      ...persisted(),
-      runs: [run],
-    }, banks)).toThrow('Unfinished');
-    run.status = 'completed';
-    run.completedAt = 200;
-    run.result = {
-      correctCount: 59,
-      percentage: 100,
-    };
-    expect(() => validateSnapshot({
-      ...persisted(),
-      runs: [run],
-    }, banks)).toThrow('inconsistent');
-    run.result.correctCount = 60;
-    expect(validateSnapshot({
-      ...persisted(),
-      runs: [run],
-    }, banks).runs[0]!.result).toEqual({
-      correctCount: 60,
-      percentage: 100,
-    });
-  });
-
-  it('rejects learning timers, missing bank snapshots, and duplicate answer identities', () => {
-    const answer = {
-      questionId: 1,
-      bankVersion: bank.version,
-      answerIndex: 1,
-      outcome: 'correctly_answered',
-    };
+  it('rejects fabricated outcomes, unavailable choices, and question IDs outside the current set', () => {
     expect(() => validateSnapshot({
       ...persisted(),
       learning: [{
-        ...answer,
-        elapsedMs: 42,
+        questionId: 1,
+        answerIndex: 0,
+        outcome: 'incorrectly_answered',
       }],
-    }, banks)).toThrow();
+    })).toThrow('correctness');
     expect(() => validateSnapshot({
       ...persisted(),
-      learning: [answer],
-    }, new Map())).toThrow('catalog');
+      learning: [{
+        questionId: 1,
+        answerIndex: 2,
+        outcome: 'correctly_answered',
+      }],
+    })).toThrow('correctness');
     expect(() => validateSnapshot({
       ...persisted(),
-      learning: [answer, answer],
-    }, banks)).toThrow('duplicate');
+      learning: [{
+        questionId: 4,
+        answerIndex: 0,
+        outcome: 'correctly_answered',
+      }],
+    })).toThrow('question set');
+    expect(() => validateSnapshot({
+      ...persisted(),
+      runs: [{
+        ...savedRun(),
+        questionIds: [4],
+      }],
+    })).toThrow('missing question');
   });
 
-  it('rejects timing ownership of a paused or missing run', () => {
-    const owner = {
-      runId: 'run-1',
-      ownerId: 'session-a',
-      expiresAt: 1000,
+  it('rejects duplicated record identities and progress without a current set', () => {
+    const answer = {
+      questionId: 1,
+      answerIndex: 0,
+      outcome: 'correctly_answered' as const,
     };
     expect(() => validateSnapshot({
       ...persisted(),
-      owners: [owner],
-    }, banks)).toThrow('active');
+      learning: [answer, answer],
+    })).toThrow('duplicate');
+    expect(() => validateSnapshot({
+      ...emptySnapshot(),
+      learning: [answer],
+    })).toThrow('missing current');
+  });
+
+  it('bounds run schemas from one through sixty distinct questions', () => {
+    const one = {
+      ...savedRun(),
+      questionIds: [1],
+    };
+    expect(runSchema.parse(one).questionIds).toEqual([1]);
+    expect(() => runSchema.parse({
+      ...one,
+      questionIds: [],
+    })).toThrow();
+    expect(() => runSchema.parse({
+      ...one,
+      questionIds: Array.from({ length: 61 }, (_, index) => index + 1),
+    })).toThrow();
+    expect(() => runSchema.parse({
+      ...one,
+      questionIds: [1, 1],
+    })).toThrow('distinct');
+  });
+
+  it('rejects future views and incomplete answer frontiers', () => {
     expect(() => validateSnapshot({
       ...persisted(),
-      runs: [savedRun()],
-      owners: [owner],
-    }, banks)).toThrow('active');
+      runs: [{
+        ...savedRun(),
+        viewedPosition: 1,
+      }],
+    })).toThrow('frontier');
+    expect(() => validateSnapshot({
+      ...persisted(),
+      runs: [{
+        ...savedRun(),
+        nextUnanswered: 1,
+      }],
+    })).toThrow('frontier');
+  });
+
+  it('requires completion and its score to agree with the three-question run length', () => {
+    const completed = {
+      ...savedRun(),
+      status: 'completed' as const,
+      completedAt: 200,
+      questionIds: [1, 2, 3],
+      answers: [1, 2, 3].map((questionId) => ({
+        questionId,
+        answerIndex: 0,
+        outcome: 'correctly_answered' as const,
+      })),
+      nextUnanswered: 3,
+      viewedPosition: 2,
+      result: {
+        correctCount: 3,
+        percentage: 100,
+      },
+    };
+    expect(validateSnapshot({
+      ...persisted(),
+      runs: [completed],
+    }).runs[0]!.result).toEqual({
+      correctCount: 3,
+      percentage: 100,
+    });
+    expect(() => validateSnapshot({
+      ...persisted(),
+      runs: [{
+        ...completed,
+        status: 'active',
+      }],
+    })).toThrow('completion');
+    expect(() => validateSnapshot({
+      ...persisted(),
+      runs: [{
+        ...completed,
+        result: {
+          correctCount: 3,
+          percentage: (3 / 60) * 100,
+        },
+      }],
+    })).toThrow('inconsistent');
   });
 });

@@ -11,7 +11,7 @@ describe('platform progress storage locations', () => {
       platform: 'linux',
       home: '/home/study',
       env: { XDG_DATA_HOME: '/var/study-data' },
-    })).toBe('/var/study-data/claude-certification/progress.sqlite');
+    })).toBe('/var/study-data/quizdeck/progress.sqlite');
   });
 
   it('falls back to the home data directory for missing or relative XDG paths', () => {
@@ -21,7 +21,7 @@ describe('platform progress storage locations', () => {
         home: '/home/study',
         env,
       }))
-        .toBe('/home/study/.local/share/claude-certification/progress.sqlite');
+        .toBe('/home/study/.local/share/quizdeck/progress.sqlite');
     }
   });
 
@@ -33,7 +33,7 @@ describe('platform progress storage locations', () => {
         LOCALAPPDATA: 'D:\\LocalData',
         APPDATA: 'E:\\RoamingData',
       },
-    })).toBe('D:\\LocalData\\claude-certification\\progress.sqlite');
+    })).toBe('D:\\LocalData\\quizdeck\\progress.sqlite');
   });
 
   it('uses native Windows separators in the home fallback for missing or invalid LOCALAPPDATA', () => {
@@ -48,7 +48,7 @@ describe('platform progress storage locations', () => {
         home: 'C:\\Users\\Study',
         env,
       }))
-        .toBe('C:\\Users\\Study\\AppData\\Local\\claude-certification\\progress.sqlite');
+        .toBe('C:\\Users\\Study\\AppData\\Local\\quizdeck\\progress.sqlite');
     }
   });
 
@@ -57,7 +57,7 @@ describe('platform progress storage locations', () => {
       platform: 'win32',
       home: 'C:\\Users\\Study',
       env: { LOCALAPPDATA: '\\\\server\\share\\Data' },
-    })).toBe('\\\\server\\share\\Data\\claude-certification\\progress.sqlite');
+    })).toBe('\\\\server\\share\\Data\\quizdeck\\progress.sqlite');
   });
 
   it('rejects a relative fallback home instead of creating a cwd-dependent database', () => {

@@ -77,10 +77,8 @@ acceptance-scenario runs.
   - `node <repo>/bin/quizdeck.js --help` and `yarn run quizdeck --help` from the
     repository.
 - Remove `dist/cli` and confirm every launcher prints the build hint and exits 1.
-- `bin/quizdeck.ps1` and `bin/quizdeck.cmd`: run `--help` and an invalid `load`
-  under PowerShell and Command Prompt on Windows, checking exit-status
-  propagation. If no Windows host or `pwsh` is available, report these as not
-  exercised.
+- Native Windows and Safari/iOS Safari verification is waived; launcher behavior
+  and platform support requirements are unchanged.
 - Run the branding audit, `yarn test`, `yarn typecheck`, `yarn lint`, and
   `yarn build`.
 

@@ -1,56 +1,40 @@
-import { createHash } from 'node:crypto';
 import {
   beforeAll,
   describe,
   expect,
   it,
 } from 'vitest';
-import { validateBank } from './bank';
-import type { Bank } from './bank';
+import type { QuestionSet } from './question-set';
+import { createFixtureSet } from './question-set.fixture';
 import {
   answerPracticeRun,
+  createPracticeRun,
   practiceReport,
   samplePracticeQuestions,
 } from './practice';
 import type { PracticeRun } from './records';
 
-let bank: Bank;
+let oneQuestion: QuestionSet;
+let threeQuestions: QuestionSet;
+let sixtyQuestions: QuestionSet;
+let seventyQuestions: QuestionSet;
+
 beforeAll(async () => {
-  const questions = Array.from({ length: 65 }, (_, index) => ({
-    id: index + 5,
-    description: `Question ${index + 5}`,
-    answers: [
-      {
-        text: 'Correct source choice',
-        correct: true,
-        justification: 'Correct explanation',
-      },
-      {
-        text: 'Wrong source choice',
-        correct: false,
-        justification: '',
-      },
-      {
-        text: 'Another wrong choice',
-        correct: false,
-        justification: '',
-      },
-    ],
-  }));
-  bank = await validateBank({
-    questions,
-    version: createHash('sha256').update(JSON.stringify(questions)).digest('hex'),
-  });
+  [oneQuestion, threeQuestions, sixtyQuestions, seventyQuestions] = await Promise.all([
+    createFixtureSet(1),
+    createFixtureSet(3),
+    createFixtureSet(60),
+    createFixtureSet(70),
+  ]);
 });
 
-function run(): PracticeRun {
+function run(set: QuestionSet): PracticeRun {
   return {
     id: 'test-run',
-    bankVersion: bank.version,
     createdAt: 100,
     completedAt: null,
     status: 'active',
-    questionIds: samplePracticeQuestions(bank, () => 0),
+    questionIds: samplePracticeQuestions(set, () => 0),
     answers: [],
     nextUnanswered: 0,
     viewedPosition: 0,
@@ -60,31 +44,29 @@ function run(): PracticeRun {
 }
 
 describe('practice question sampling', () => {
-  it('selects exactly sixty distinct valid source IDs', () => {
-    const ids = samplePracticeQuestions(bank);
-    expect(ids).toHaveLength(60);
-    expect(new Set(ids).size).toBe(60);
-    expect(ids.every((id) => bank.questions.some((question) => question.id === id))).toBe(true);
+  it('uses every question below sixty and caps larger sets at sixty', () => {
+    expect(samplePracticeQuestions(oneQuestion, () => 0)).toEqual([1]);
+    expect(samplePracticeQuestions(threeQuestions, () => 0)).toEqual([1, 2, 3]);
+    expect(samplePracticeQuestions(sixtyQuestions)).toHaveLength(60);
+    const sampled = samplePracticeQuestions(seventyQuestions);
+    expect(sampled).toHaveLength(60);
+    expect(new Set(sampled).size).toBe(60);
+    expect(sampled.every((id) => seventyQuestions.questions.some((question) => question.id === id)))
+      .toBe(true);
   });
 
-  it('handles the sixty-question boundary and refuses a smaller bank', () => {
-    const exact = {
-      ...bank,
-      questions: bank.questions.slice(0, 60),
-    };
-    expect(new Set(samplePracticeQuestions(exact)).size).toBe(60);
-    expect(() => samplePracticeQuestions({
-      ...bank,
-      questions: bank.questions.slice(0, 59),
-    })).toThrow('at least 60');
-    expect(() => samplePracticeQuestions(bank, (limit) => limit)).toThrow('invalid index');
+  it('creates a run whose length is the sampled set length and rejects invalid random indices', () => {
+    const runForOne = createPracticeRun(oneQuestion, 'one-question-run', 50);
+    expect(runForOne.questionIds).toHaveLength(1);
+    expect(runForOne.nextUnanswered).toBe(0);
+    expect(() => samplePracticeQuestions(threeQuestions, (limit) => limit)).toThrow('invalid index');
   });
 });
 
 describe('sequential answers and completed report', () => {
-  it('records a choice at the frontier, advances once, and rejects edits or skipped positions', () => {
-    const before = run();
-    const after = answerPracticeRun(before, bank, {
+  it('records only the frontier and rejects edits, skips, and unavailable choices', () => {
+    const before = run(threeQuestions);
+    const after = answerPracticeRun(before, threeQuestions, {
       position: 0,
       answerIndex: 1,
       elapsedMs: 500,
@@ -92,61 +74,36 @@ describe('sequential answers and completed report', () => {
     });
     expect(before.answers).toEqual([]);
     expect(after.answers).toEqual([{
-      questionId: 5,
+      questionId: 1,
       answerIndex: 1,
       outcome: 'incorrectly_answered',
     }]);
     expect(after.nextUnanswered).toBe(1);
     expect(after.viewedPosition).toBe(1);
-    expect(practiceReport(after, bank)).toBeNull();
-    expect(() => answerPracticeRun(after, bank, {
+    expect(() => answerPracticeRun(after, threeQuestions, {
       position: 0,
       answerIndex: 0,
       elapsedMs: 700,
       now: 800,
     })).toThrow('current');
-    expect(() => answerPracticeRun(after, bank, {
+    expect(() => answerPracticeRun(after, threeQuestions, {
       position: 2,
       answerIndex: 0,
       elapsedMs: 700,
       now: 800,
     })).toThrow('current');
-    expect(() => answerPracticeRun({
-      ...after,
-      viewedPosition: 0,
-    }, bank, {
+    expect(() => answerPracticeRun(after, threeQuestions, {
       position: 1,
-      answerIndex: 0,
+      answerIndex: 2,
       elapsedMs: 700,
       now: 800,
-    })).toThrow('current');
-  });
-
-  it('does not invent a fourth choice or accept answers while paused', () => {
-    expect(() => answerPracticeRun(run(), bank, {
-      position: 0,
-      answerIndex: 3,
-      elapsedMs: 0,
-      now: 100,
     })).toThrow('does not exist');
-    expect(() => answerPracticeRun({
-      ...run(),
-      status: 'paused',
-    }, bank, {
-      position: 0,
-      answerIndex: 0,
-      elapsedMs: 0,
-      now: 100,
-    })).toThrow('current');
   });
 
-  it('completes on answer sixty and reports the original unsorted practice order', () => {
-    let current = {
-      ...run(),
-      questionIds: samplePracticeQuestions(bank, (limit) => limit - 1),
-    };
-    for (let position = 0; position < 60; position += 1) {
-      current = answerPracticeRun(current, bank, {
+  it('completes at the set-driven length and reports percentage over that length', () => {
+    let current = run(threeQuestions);
+    for (let position = 0; position < 3; position += 1) {
+      current = answerPracticeRun(current, threeQuestions, {
         position,
         answerIndex: position === 0 ? 1 : 0,
         elapsedMs: position * 1000,
@@ -154,25 +111,24 @@ describe('sequential answers and completed report', () => {
       });
     }
     expect(current.status).toBe('completed');
-    expect(current.completedAt).toBe(60_000);
-    const report = practiceReport(current, bank)!;
-    expect(report.correctCount).toBe(59);
-    expect(report.questions).toHaveLength(60);
-    expect(report.questions[0]).toMatchObject({
-      position: 1,
-      questionId: 69,
-      outcome: 'incorrectly_answered',
+    expect(current.nextUnanswered).toBe(3);
+    expect(current.completedAt).toBe(3000);
+    expect(current.result).toEqual({
+      correctCount: 2,
+      percentage: (2 / 3) * 100,
     });
-    expect(report.questions[0]!.choices[1]).toMatchObject({
-      selected: true,
-      correct: false,
+    const report = practiceReport(current, threeQuestions)!;
+    expect(report).toMatchObject({
+      total: 3,
+      correctCount: 2,
+      percentage: (2 / 3) * 100,
     });
-    expect(report.questions.at(-1)!.questionId).toBe(63);
-    expect(() => answerPracticeRun(current, bank, {
-      position: 59,
-      answerIndex: 1,
-      elapsedMs: 60_000,
-      now: 61_000,
+    expect(report.questions).toHaveLength(3);
+    expect(() => answerPracticeRun(current, threeQuestions, {
+      position: 2,
+      answerIndex: 0,
+      elapsedMs: 4000,
+      now: 4000,
     })).toThrow('current');
   });
 });

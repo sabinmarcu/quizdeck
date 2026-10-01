@@ -10,8 +10,8 @@ import {
 } from 'react';
 import {
   actionErrorAtom,
-  bankInfoAtom,
   pendingAtom,
+  setInfoAtom,
   startupAtom,
 } from '../state/application';
 import {
@@ -60,7 +60,7 @@ export namespace App {
 
 export function App({ onReload }: App.Props) {
   const startup = useAtomValue(startupAtom);
-  const bankInfo = useAtomValue(bankInfoAtom);
+  const setInfo = useAtomValue(setInfoAtom);
   const pending = useAtomValue(pendingAtom);
   const saveError = useAtomValue(actionErrorAtom);
   const leavePractice = useSetAtom(leavePracticeAtom);
@@ -189,7 +189,7 @@ export function App({ onReload }: App.Props) {
   if (startup.status === 'loading') {
     return (
       <main className={shell} aria-busy="true">
-        <h1>Claude certification</h1>
+        <h1>Quizdeck</h1>
         <output className={status}>Opening your local progress storage…</output>
       </main>
     );
@@ -197,7 +197,7 @@ export function App({ onReload }: App.Props) {
   if (startup.status === 'error') {
     return (
       <main className={shell}>
-        <h1>Claude certification</h1>
+        <h1>Quizdeck</h1>
         <section className={error} role="alert" aria-labelledby="storage-error">
           <h2 id="storage-error">Local progress storage could not be opened</h2>
           <p className={hash}>{startup.message}</p>
@@ -206,13 +206,13 @@ export function App({ onReload }: App.Props) {
       </main>
     );
   }
-  if (!bankInfo) {
-    throw new Error('Ready storage must include validated question bank information.');
+  if (!setInfo) {
+    throw new Error('Ready storage must include validated question-set information.');
   }
   if (!interactive) {
     return (
       <main className={shell}>
-        <h1>Claude certification</h1>
+        <h1>Quizdeck</h1>
         <section className={notice} role="alert" aria-labelledby="retention-title">
           <h2 id="retention-title">Progress may be cleared by this browser</h2>
           <p>
@@ -234,8 +234,8 @@ export function App({ onReload }: App.Props) {
   return (
     <main className={shell}>
       <header className={header}>
-        <h1 className={title}>Claude certification</h1>
-        <p className={subtitle}>Local question data and saved progress.</p>
+        <h1 className={title}>Quizdeck</h1>
+        <p className={subtitle}>Study a question set with saved local progress.</p>
       </header>
       <nav aria-label="Application navigation" data-app-navigation>
         <div className={tabList}>
@@ -294,7 +294,7 @@ export function App({ onReload }: App.Props) {
         />
       )}
       {section !== 'Learn' && section !== 'Practice' && (
-        <Panel section={section} startup={startup} bankInfo={bankInfo} />
+        <Panel section={section} startup={startup} setInfo={setInfo} />
       )}
     </main>
   );

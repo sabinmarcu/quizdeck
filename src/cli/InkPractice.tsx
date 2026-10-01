@@ -137,6 +137,9 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
     screen = 'report';
   }
   const focusedChoice = view ? Math.min(choiceFocus, view.choices.length - 1) : 0;
+  const practiceLength = startup.status === 'ready'
+    ? Math.min(60, startup.set.questionCount)
+    : 0;
 
   const runLines = useMemo<TerminalLine[]>(() => {
     if (!view) {
@@ -165,12 +168,12 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
   }, [report, width]);
   const historyLines = useMemo<TerminalLine[]>(() => history.flatMap((entry, index) => {
     const score = entry.score
-      ? ` · Score ${entry.score.correctCount}/60 (${entry.score.percentage.toFixed(1)}%)`
+      ? ` · Score ${entry.score.correctCount}/${entry.total} (${entry.score.percentage.toFixed(1)}%)`
       : '';
     return [
       {
         text: `Practice run ${index + 1} · ${historyLabel(entry.status)}`
-          + ` · ${entry.answeredCount}/60 answered`
+          + ` · ${entry.answeredCount}/${entry.total} answered`
           + ` · ${formatPracticeDuration(entry.elapsedMs)}${score}`,
         historyIndex: index,
       },
@@ -299,7 +302,7 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
   const helpLines = [
     'Practice controls',
     'History: j/k or arrows selects a saved run, gg/G or Home/End reaches the boundaries, '
-      + 'Enter opens it, and n starts a new 60-question run.',
+      + `Enter opens it, and n starts a new ${practiceLength}-question run.`,
     'During a run, h/l or left/right move through available questions. '
       + 'The last available question is the next unanswered one; recorded answers are read-only.',
     'On the current unanswered question, j/k selects a choice; Enter, a-d, or 1-4 saves '
@@ -525,7 +528,7 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
       <Text bold>Practice</Text>
       {screen === 'run' && view && (
         <Text color={view.paused ? 'yellow' : undefined}>
-          {`Answered ${view.nextUnanswered}/60 · ${formatPracticeDuration(view.elapsedMs)} · `}
+          {`Answered ${view.nextUnanswered}/${view.total} · ${formatPracticeDuration(view.elapsedMs)} · `}
           {view.paused ? 'Paused' : 'In progress'}
         </Text>
       )}
@@ -534,7 +537,7 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
       )}
       {screen === 'report' && report && (
         <Text>
-          {`Completed · Score ${report.correctCount}/60 (${report.percentage.toFixed(1)}%)`
+          {`Completed · Score ${report.correctCount}/${report.total} (${report.percentage.toFixed(1)}%)`
             + ` · ${formatPracticeDuration(report.elapsedMs)}`}
         </Text>
       )}
@@ -549,7 +552,7 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
           />
         )}
         {screen === 'history' && history.length === 0 && !showHelp && (
-          <Text>No saved practice runs. Press n to start a 60-question run.</Text>
+          <Text>{`No saved practice runs. Press n to start a ${practiceLength}-question run.`}</Text>
         )}
         {(screen !== 'run' || showHelp) && visibleLines.map((line, index) => {
           const absolute = displayOffset + index;

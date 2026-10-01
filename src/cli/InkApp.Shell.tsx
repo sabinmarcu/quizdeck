@@ -14,13 +14,13 @@ import {
 import wrapAnsi from 'wrap-ansi';
 import {
   actionErrorAtom,
-  bankInfoAtom,
+  setInfoAtom,
   pendingAtom,
   startupAtom,
 } from '../state/application';
 import type {
   AppSession,
-  BankInfo,
+  SetInfo,
   Startup,
 } from '../state/application';
 import {
@@ -39,11 +39,11 @@ import { InkPractice } from './InkPractice';
 interface ExtrasContent {
   section: ExtrasSection | null;
   startup: Startup;
-  bankInfo: BankInfo | null;
+  setInfo: SetInfo | null;
 }
 
 function sectionText({
-  section, startup, bankInfo,
+  section, startup, setInfo,
 }: ExtrasContent): string {
   if (section === 'Help') {
     return [
@@ -71,17 +71,20 @@ function sectionText({
       `Location: ${startup.location}`,
       `Retention: ${startup.retention}`,
       `Revision: ${startup.snapshot.revision}`,
-      `Bank version: ${startup.bank.version}`,
+      `Content hash: ${startup.set.contentHash}`,
     ].join('\n');
   }
-  if (!bankInfo) {
-    throw new Error('Ready storage must include validated bank information.');
+  if (!setInfo) {
+    throw new Error('Ready storage must include validated question-set information.');
   }
   return [
     'Overview',
-    `Questions: ${bankInfo.questionCount}`,
-    `Answers: ${bankInfo.answerCount}`,
-    `Answers without source explanations: ${bankInfo.missingExplanationCount}`,
+    `Set: ${startup.set.name}`,
+    `Source: ${startup.set.source}`,
+    `Loaded: ${new Date(startup.set.loadedAt).toLocaleString()}`,
+    `Questions: ${setInfo.questionCount}`,
+    `Answers: ${setInfo.answerCount}`,
+    `Answers without source explanations: ${setInfo.missingExplanationCount}`,
     `Saved learning answers: ${startup.snapshot.learning.length}`,
     `Saved practice runs: ${startup.snapshot.runs.length}`,
   ].join('\n');
@@ -93,7 +96,7 @@ export namespace InkShell {
 
 export function InkShell({ session, onQuit }: InkShell.Props) {
   const startup = useAtomValue(startupAtom);
-  const bankInfo = useAtomValue(bankInfoAtom);
+  const setInfo = useAtomValue(setInfoAtom);
   const saveError = useAtomValue(actionErrorAtom);
   const pending = useAtomValue(pendingAtom);
   const { stdout } = useStdout();
@@ -111,14 +114,14 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
     sectionText({
       section: active === 'Learn' || active === 'Practice' ? null : active,
       startup,
-      bankInfo,
+      setInfo,
     }),
     Math.max(1, size.columns - 2),
     {
       hard: true,
       trim: false,
     },
-  ).split('\n'), [active, startup, bankInfo, size.columns]);
+  ).split('\n'), [active, startup, setInfo, size.columns]);
   const visibleOffset = Math.min(offset, Math.max(0, lines.length - pageSize));
   const menuItems = extrasOpen ? extrasMenuItems : mainMenuItems;
 
@@ -230,7 +233,7 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      <Text bold>Claude certification</Text>
+      <Text bold>Quizdeck</Text>
       <Box marginTop={1}>
         {mainMenuItems.map((item, index) => (
           <Text

@@ -5,9 +5,10 @@ import {
   it,
 } from 'vitest';
 import {
+  createQuestionSet,
   questionsSchema,
-  validateBank,
-} from './bank';
+  validateQuestionSet,
+} from './question-set';
 
 const question = {
   id: 1,
@@ -31,7 +32,7 @@ const question = {
   ],
 };
 
-describe('question bank trust boundary', () => {
+describe('question set trust boundary', () => {
   it('rejects duplicate source IDs rather than merging questions', () => {
     expect(() => questionsSchema.parse([question, {
       ...question,
@@ -39,7 +40,7 @@ describe('question bank trust boundary', () => {
     }])).toThrow('unique');
   });
 
-  it('rejects a bank without exactly one correct choice per question', () => {
+  it('rejects a source without exactly one correct choice', () => {
     expect(() => questionsSchema.parse([{
       ...question,
       answers: question.answers.map((answer) => ({
@@ -71,20 +72,41 @@ describe('question bank trust boundary', () => {
     }])).toThrow();
   });
 
-  it('accepts a three-choice source with missing explanations and verifies its content identity', async () => {
+  it('hashes source JSON without changing wording or question order', async () => {
     const questions = [question];
-    const version = createHash('sha256').update(JSON.stringify(questions)).digest('hex');
-    const bank = await validateBank({
-      version,
+    const set = await createQuestionSet(questions, {
+      name: 'Imported Set',
+      source: 'file',
+      loadedAt: 42,
+    });
+    const expectedHash = createHash('sha256').update(JSON.stringify(questions)).digest('hex');
+    expect(set).toMatchObject({
+      name: 'Imported Set',
+      source: 'file',
+      loadedAt: 42,
+      contentHash: expectedHash,
+      questionCount: 1,
       questions,
     });
-    expect(bank.version).toBe(version);
-    await expect(validateBank({
-      version,
+    await expect(validateQuestionSet(set)).resolves.toEqual(set);
+  });
+
+  it('rejects a stored set with altered content or count', async () => {
+    const set = await createQuestionSet([question], {
+      name: 'Imported Set',
+      source: 'file',
+      loadedAt: 0,
+    });
+    await expect(validateQuestionSet({
+      ...set,
       questions: [{
         ...question,
         description: 'Altered content',
       }],
-    })).rejects.toThrow('does not match');
+    })).rejects.toThrow('hash');
+    await expect(validateQuestionSet({
+      ...set,
+      questionCount: 2,
+    })).rejects.toThrow('count');
   });
 });

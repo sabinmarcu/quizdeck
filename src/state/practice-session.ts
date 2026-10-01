@@ -1,11 +1,10 @@
 import { atom } from 'jotai';
 import type { Store } from 'jotai/vanilla';
 import { z } from 'zod';
-import type { Bank } from '../data/bank';
+import type { QuestionSet } from '../data/question-set';
 import {
   answerPracticeRun,
   createPracticeRun,
-  practiceQuestionCount,
 } from '../data/practice';
 import type {
   PracticeRun,
@@ -14,7 +13,7 @@ import type {
 import type { StorageChange } from '../data/storage';
 
 export interface PracticePersistence {
-  read(): { bank: Bank; banks: ReadonlyMap<string, Bank>; snapshot: Snapshot } | null;
+  read(): { set: QuestionSet; snapshot: Snapshot } | null;
   mutate(build: (snapshot: Snapshot) => StorageChange[], background?: boolean): Promise<Snapshot>;
   refresh(): Promise<Snapshot>;
   onError(message: string): void;
@@ -254,7 +253,7 @@ export function createPracticeController(
       if (startup === null) {
         throw new Error('Load progress storage before starting practice.');
       }
-      const run = createPracticeRun(startup.bank, crypto.randomUUID(), now());
+      const run = createPracticeRun(startup.set, crypto.randomUUID(), now());
       await persistence.mutate(() => [
         {
           kind: 'putRun',
@@ -291,7 +290,7 @@ export function createPracticeController(
     answer: (input) => userAction(async () => {
       const validated = z.strictObject({
         runId: z.string().min(1),
-        position: z.number().int().min(0).max(59),
+        position: z.number().int().nonnegative(),
         answerIndex: z.number().int().nonnegative(),
       }).parse(input);
       if (activeId !== validated.runId || !store.get(practiceOwnedAtom)) {
@@ -301,12 +300,10 @@ export function createPracticeController(
       const duration = elapsed();
       const snapshot = await persistence.mutate((current) => {
         const run = runFrom(current, validated.runId);
-        const startup = persistence.read();
-        const bank = startup !== null ? startup.banks.get(run.bankVersion) : undefined;
-        if (!bank) {
-          throw new Error('The saved practice bank is unavailable.');
+        if (!current.currentSet || validated.position >= run.questionIds.length) {
+          throw new Error('The saved practice question is unavailable.');
         }
-        const next = answerPracticeRun(run, bank, {
+        const next = answerPracticeRun(run, current.currentSet, {
           ...validated,
           elapsedMs: duration,
           now: at,
@@ -332,7 +329,7 @@ export function createPracticeController(
       const duration = elapsed();
       await persistence.mutate((snapshot) => {
         const run = runFrom(snapshot, id);
-        if (position < 0 || position > run.nextUnanswered || position >= practiceQuestionCount) {
+        if (position < 0 || position > run.nextUnanswered || position >= run.questionIds.length) {
           throw new Error('Only answered questions and the next unanswered question are accessible.');
         }
         return guardedChanges({

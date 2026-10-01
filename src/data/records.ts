@@ -1,34 +1,57 @@
 import { z } from 'zod';
-import { bankSchema } from './bank';
+import { questionSetSchema } from './question-set';
 import type {
-  Bank,
   Question,
-} from './bank';
+  QuestionSet,
+} from './question-set';
 
 const integer = z.number().int().nonnegative().safe();
-const { version } = bankSchema.shape;
 const identity = z.string().min(1);
 export const answerSchema = z.strictObject({
   questionId: z.number().int().positive().safe(),
   answerIndex: integer,
   outcome: z.enum(['correctly_answered', 'incorrectly_answered']),
 });
-export const learningSchema = answerSchema.extend({ bankVersion: version });
+export const learningSchema = answerSchema;
 export const runSchema = z.strictObject({
   id: identity,
-  bankVersion: version,
   createdAt: integer,
   completedAt: integer.nullable(),
   status: z.enum(['active', 'paused', 'completed']),
-  questionIds: z.array(z.number().int().positive().safe()).length(60).refine((ids) => new Set(ids).size === 60, 'A run must contain 60 distinct question IDs'),
-  answers: z.array(answerSchema).max(60),
-  nextUnanswered: integer.max(60),
-  viewedPosition: integer.max(59),
+  questionIds: z.array(z.number().int().positive().safe()).min(1).max(60).refine(
+    (ids) => new Set(ids).size === ids.length,
+    'A run must contain distinct question IDs',
+  ),
+  answers: z.array(answerSchema),
+  nextUnanswered: integer,
+  viewedPosition: integer,
   elapsedMs: z.number().finite().nonnegative(),
   result: z.strictObject({
-    correctCount: integer.max(60),
+    correctCount: integer,
     percentage: z.number().finite().min(0).max(100),
   }).nullable(),
+}).superRefine((run, context) => {
+  const { length } = run.questionIds;
+  if (run.answers.length > length || run.nextUnanswered > length
+    || run.viewedPosition >= length || (run.result && run.result.correctCount > length)) {
+    context.addIssue({
+      code: 'custom',
+      message: 'Practice run bounds are inconsistent',
+    });
+  }
+  if ((run.status === 'completed') !== (run.nextUnanswered === length)) {
+    context.addIssue({
+      code: 'custom',
+      message: 'Practice completion does not match its answer frontier',
+    });
+  }
+  if (run.result
+    && Math.abs(run.result.percentage - (run.result.correctCount / length) * 100) > 0.000001) {
+    context.addIssue({
+      code: 'custom',
+      message: 'Completed practice result is inconsistent',
+    });
+  }
 });
 export const ownerSchema = z.strictObject({
   runId: identity,
@@ -38,10 +61,7 @@ export const ownerSchema = z.strictObject({
 export const snapshotSchema = z.strictObject({
   schemaVersion: z.literal(1),
   revision: integer,
-  banks: z.array(z.strictObject({
-    version,
-    questionCount: integer.positive(),
-  })),
+  currentSet: questionSetSchema.nullable(),
   learning: z.array(learningSchema),
   runs: z.array(runSchema),
   owners: z.array(ownerSchema),
@@ -50,92 +70,93 @@ export const snapshotSchema = z.strictObject({
 export type LearningAnswer = z.infer<typeof learningSchema>;
 export type PracticeRun = z.infer<typeof runSchema>;
 export type RunOwner = z.infer<typeof ownerSchema>;
-export type Snapshot = z.infer<typeof snapshotSchema>;
+export type Snapshot = Omit<z.infer<typeof snapshotSchema>, 'currentSet'> & {
+  currentSet: QuestionSet | null;
+};
 
-const questionIndexes = new WeakMap<Bank, ReadonlyMap<number, Question>>();
+const questionIndexes = new WeakMap<QuestionSet, ReadonlyMap<number, Question>>();
 
 export function emptySnapshot(): Snapshot {
   return {
     schemaVersion: 1,
     revision: 0,
-    banks: [],
+    currentSet: null,
     learning: [],
     runs: [],
     owners: [],
   };
 }
 
-function questionIndex(bank: Bank): ReadonlyMap<number, Question> {
-  const existing = questionIndexes.get(bank);
+function questionIndex(set: QuestionSet): ReadonlyMap<number, Question> {
+  const existing = questionIndexes.get(set);
   if (existing) {
     return existing;
   }
   const index = new Map<number, Question>();
-  for (const question of bank.questions) {
+  for (const question of set.questions) {
     index.set(question.id, question);
   }
-  questionIndexes.set(bank, index);
+  questionIndexes.set(set, index);
   return index;
 }
-function validateAnswer(
-  answer: z.infer<typeof answerSchema>,
-  bankVersion: string,
-  bankIds: ReadonlySet<string>,
-  banks: ReadonlyMap<string, Bank>,
-) {
-  const bank = banks.get(bankVersion);
-  const choice = bank
-    ? questionIndex(bank).get(answer.questionId)?.answers[answer.answerIndex]
-    : undefined;
-  if (!bankIds.has(bankVersion) || !choice
-    || answer.outcome !== (choice.correct ? 'correctly_answered' : 'incorrectly_answered')) {
-    throw new Error('Recorded answer or correctness does not match its question bank');
+
+function validateAnswer(answer: z.infer<typeof answerSchema>, set: QuestionSet) {
+  const choice = questionIndex(set).get(answer.questionId)?.answers[answer.answerIndex];
+  if (!choice || answer.outcome !== (choice.correct ? 'correctly_answered' : 'incorrectly_answered')) {
+    throw new Error('Recorded answer or correctness does not match its question set');
   }
 }
-export function validateSnapshot(input: unknown, banks: ReadonlyMap<string, Bank>): Snapshot {
+
+export function validateSnapshot(input: unknown): Snapshot {
   const snapshot = snapshotSchema.parse(input);
-  const bankIds = new Set(snapshot.banks.map((bank) => bank.version));
-  if (bankIds.size !== snapshot.banks.length
-    || new Set(snapshot.learning.map((answer) => answer.questionId)).size
+  const { currentSet } = snapshot;
+  if (currentSet && currentSet.questionCount !== currentSet.questions.length) {
+    throw new Error('Current question set count does not match its questions');
+  }
+  if (new Set(snapshot.learning.map((answer) => answer.questionId)).size
       !== snapshot.learning.length
     || new Set(snapshot.runs.map((run) => run.id)).size !== snapshot.runs.length
     || new Set(snapshot.owners.map((owner) => owner.runId)).size !== snapshot.owners.length) {
     throw new Error('Persisted records contain duplicate identities');
   }
-  for (const summary of snapshot.banks) {
-    const bank = banks.get(summary.version);
-    if (!bank || bank.questions.length !== summary.questionCount) {
-      throw new Error('Persisted bank catalog does not match its immutable snapshot');
-    }
+  if (!currentSet && (snapshot.learning.length > 0
+    || snapshot.runs.length > 0 || snapshot.owners.length > 0)) {
+    throw new Error('Persisted progress references a missing current question set');
   }
-  for (const answer of snapshot.learning) {
-    validateAnswer(answer, answer.bankVersion, bankIds, banks);
-  }
-  for (const run of snapshot.runs) {
-    const bank = banks.get(run.bankVersion);
-    if (!bankIds.has(run.bankVersion) || !bank
-      || run.questionIds.some((id) => !questionIndex(bank).has(id))) {
-      throw new Error('Practice run references a missing bank or question');
+  if (currentSet) {
+    for (const answer of snapshot.learning) {
+      validateAnswer(answer, currentSet);
     }
-    if (run.answers.length !== run.nextUnanswered
-      || run.viewedPosition > Math.min(run.nextUnanswered, 59)) {
-      throw new Error('Practice answer frontier and viewed position are inconsistent');
-    }
-    for (const [position, answer] of run.answers.entries()) {
-      if (answer.questionId !== run.questionIds[position]) {
-        throw new Error('Practice answers do not follow their saved question order');
+    for (const run of snapshot.runs) {
+      const { length } = run.questionIds;
+      if (run.questionIds.some((id) => !questionIndex(currentSet).has(id))) {
+        throw new Error('Practice run references a missing question');
       }
-      validateAnswer(answer, run.bankVersion, bankIds, banks);
-    }
-    if (run.status === 'completed') {
-      const correctCount = run.answers.filter((answer) => answer.outcome === 'correctly_answered').length;
-      if (run.nextUnanswered !== 60 || run.completedAt === null || run.completedAt < run.createdAt
-        || !run.result || run.result.correctCount !== correctCount
-        || Math.abs(run.result.percentage - (correctCount / 60) * 100) > 0.000001) {
-        throw new Error('Completed practice result is inconsistent');
+      if (run.answers.length !== run.nextUnanswered
+        || run.nextUnanswered > length
+        || run.viewedPosition > Math.min(run.nextUnanswered, length - 1)) {
+        throw new Error('Practice answer frontier and viewed position are inconsistent');
       }
-    } else if (run.nextUnanswered === 60 || run.completedAt !== null || run.result !== null) {
-      throw new Error('Unfinished practice run contains a completed result');
+      for (const [position, answer] of run.answers.entries()) {
+        if (answer.questionId !== run.questionIds[position]) {
+          throw new Error('Practice answers do not follow their saved question order');
+        }
+        validateAnswer(answer, currentSet);
+      }
+      const complete = run.nextUnanswered === length;
+      if ((run.status === 'completed') !== complete) {
+        throw new Error('Practice completion does not match its answer frontier');
+      }
+      if (complete) {
+        const correctCount = run.answers.filter((answer) => answer.outcome === 'correctly_answered').length;
+        if (run.completedAt === null || run.completedAt < run.createdAt
+          || !run.result || run.result.correctCount !== correctCount
+          || Math.abs(run.result.percentage - (correctCount / length) * 100) > 0.000001) {
+          throw new Error('Completed practice result is inconsistent');
+        }
+      } else if (run.completedAt !== null || run.result !== null) {
+        throw new Error('Unfinished practice run contains a completed result');
+      }
     }
   }
   for (const owner of snapshot.owners) {
@@ -145,4 +166,3 @@ export function validateSnapshot(input: unknown, banks: ReadonlyMap<string, Bank
   }
   return snapshot;
 }
-

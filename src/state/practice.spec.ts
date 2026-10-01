@@ -13,6 +13,7 @@ import {
   it,
 } from 'vitest';
 import { SqliteProgressStorage } from '../cli/sqlite';
+import { createFixtureSet } from '../data/question-set.fixture';
 import {
   createAppSession,
   startupAtom,
@@ -39,6 +40,15 @@ beforeEach(async () => {
   await mkdir('tmp', { recursive: true });
   directory = await mkdtemp('tmp/practice-spec-');
   filename = path.join(directory, 'progress.sqlite');
+  const storage = await SqliteProgressStorage.open({ path: filename });
+  await storage.commit({
+    expectedRevision: 0,
+    changes: [{
+      kind: 'seedSet',
+      set: await createFixtureSet(),
+    }],
+  });
+  storage.close();
   monotonic = 0;
   wall = 100_000;
 });
@@ -84,6 +94,35 @@ async function answer(current: AppSession, answerIndex = 0) {
 }
 
 describe('native persisted practice sessions', () => {
+  it('uses the saved short run length for navigation, history, completion, and scoring', async () => {
+    filename = path.join(directory, 'short.sqlite');
+    const storage = await SqliteProgressStorage.open({ path: filename });
+    await storage.commit({
+      expectedRevision: 0,
+      changes: [{
+        kind: 'seedSet',
+        set: await createFixtureSet(3),
+      }],
+    });
+    storage.close();
+    const current = await session();
+    await current.practice.start();
+    expect(current.store.get(practiceViewAtom)!.total).toBe(3);
+    expect(current.store.get(practiceHistoryAtom)[0]!.total).toBe(3);
+    expect(await current.practice.view(3)).toBe(false);
+    expect(await answer(current, 1)).toBe(true);
+    expect(await answer(current, 0)).toBe(true);
+    expect(current.store.get(practiceReportAtom)).toBeNull();
+    expect(await answer(current, 0)).toBe(true);
+    const report = current.store.get(practiceReportAtom)!;
+    expect(report.total).toBe(3);
+    expect(report.correctCount).toBe(2);
+    expect(report.percentage).toBeCloseTo(200 / 3);
+    expect(current.store.get(practiceViewAtom)).toBeNull();
+    expect(snapshot(current).runs[0]!.nextUnanswered).toBe(3);
+    expect(snapshot(current).runs[0]!.viewedPosition).toBe(2);
+  });
+
   it('creates sixty saved unique questions and withholds feedback, IDs, and partial reports', async () => {
     const current = await session();
     expect(await current.practice.start()).toBe(true);

@@ -2,8 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { StatementSync } from 'node:sqlite';
-import { validateBank } from '../data/bank';
-import type { Bank } from '../data/bank';
+import { validateQuestionSet } from '../data/question-set';
+import type { QuestionSet } from '../data/question-set';
 import {
   emptySnapshot,
   validateSnapshot,
@@ -20,12 +20,18 @@ import type {
 } from '../data/storage';
 import { resolveProgressStoragePath } from './path';
 
-const tableNames = ['progress_metadata', 'progress_banks', 'progress_learning', 'progress_runs', 'progress_owners'];
+const tableNames = ['progress_metadata', 'progress_set', 'progress_learning', 'progress_runs', 'progress_owners'];
+
 interface PersistedRow { id: string; payload: string }
-interface CachedBank { serialized: string; bank: Bank }
+
+interface CachedSet {
+  serialized: string;
+  set: QuestionSet;
+}
+
 interface CapturedSnapshot {
   revision: number;
-  banks: PersistedRow[];
+  set: string | null;
   learning: unknown[];
   runs: unknown[];
   owners: unknown[];
@@ -42,7 +48,7 @@ function parseRevision(value: string | undefined): number {
   return Number(value);
 }
 
-function parsePayload(row: PersistedRow, identity: 'questionId' | 'id' | 'runId' | 'version'): unknown {
+function parsePayload(row: PersistedRow, identity: 'questionId' | 'id' | 'runId'): unknown {
   let value: unknown;
   try {
     value = JSON.parse(row.payload);
@@ -55,28 +61,24 @@ function parsePayload(row: PersistedRow, identity: 'questionId' | 'id' | 'runId'
   return value;
 }
 
-async function prepareBanks(transaction: Transaction): Promise<Map<string, Bank>> {
-  const banks = new Map<string, Bank>();
+async function prepareSet(transaction: Transaction): Promise<QuestionSet | null> {
   for (const change of transaction.changes) {
-    if (change.kind === 'putBank') {
-      banks.set(change.bank.version, await validateBank(change.bank));
+    if (change.kind === 'seedSet') {
+      return validateQuestionSet(change.set);
     }
   }
-  return banks;
+  return null;
 }
 
-function snapshotFrom(captured: CapturedSnapshot, banks: ReadonlyMap<string, Bank>): Snapshot {
+function snapshotFrom(captured: CapturedSnapshot, currentSet: QuestionSet | null): Snapshot {
   return validateSnapshot({
     ...emptySnapshot(),
     revision: captured.revision,
-    banks: [...banks.values()].map((bank) => ({
-      version: bank.version,
-      questionCount: bank.questions.length,
-    })),
+    currentSet,
     learning: captured.learning,
     runs: captured.runs,
     owners: captured.owners,
-  }, banks);
+  });
 }
 
 export namespace SqliteProgressStorage {
@@ -94,7 +96,7 @@ export class SqliteProgressStorage implements ProgressStorage {
 
   private readonly listeners = new Set<() => void>();
 
-  private readonly bankCache = new Map<string, CachedBank>();
+  private cachedSet: CachedSet | null = null;
 
   private closed = false;
 
@@ -132,32 +134,16 @@ export class SqliteProgressStorage implements ProgressStorage {
       this.database.exec('ROLLBACK');
       throw error;
     }
-    const banks = new Map<string, Bank>();
-    for (const row of captured.banks) {
-      banks.set(row.id, await this.parseBank(row));
-    }
-    return snapshotFrom(captured, banks);
-  }
-
-  public async getBank(version: string): Promise<Bank | undefined> {
-    this.assertOpen();
-    const row = this.database.prepare('SELECT payload FROM progress_banks WHERE version = ?').get(version);
-    if (!row) {
-      return undefined;
-    }
-    if (typeof row.payload !== 'string') {
-      throw new TypeError(`Persisted bank ${version} has an invalid payload.`);
-    }
-    return this.parseBank({
-      id: version,
-      payload: row.payload,
-    });
+    const currentSet = captured.set === null
+      ? null
+      : await this.parseSet(captured.set);
+    return snapshotFrom(captured, currentSet);
   }
 
   public async commit(input: Transaction): Promise<Snapshot> {
     this.assertOpen();
     const transaction = transactionSchema.parse(input);
-    const stagedBanks = await prepareBanks(transaction);
+    const stagedSet = await prepareSet(transaction);
     await this.load();
     this.assertOpen();
     this.database.exec('BEGIN IMMEDIATE');
@@ -167,20 +153,10 @@ export class SqliteProgressStorage implements ProgressStorage {
       if (captured.revision !== transaction.expectedRevision) {
         throw new StorageConflictError();
       }
-      const banks = new Map<string, Bank>();
-      for (const row of captured.banks) {
-        const cached = this.bankCache.get(row.id);
-        if (!cached || cached.serialized !== row.payload) {
-          throw new StorageConflictError('Question banks changed during preparation. Reload storage.');
-        }
-        banks.set(row.id, cached.bank);
-      }
-      const current = snapshotFrom(captured, banks);
-      for (const [version, bank] of stagedBanks) {
-        banks.set(version, bank);
-      }
-      next = applyTransaction(current, transaction, banks);
-      this.writeChanges(transaction);
+      const currentSet = this.currentSetFromCache(captured.set);
+      const current = snapshotFrom(captured, currentSet);
+      next = applyTransaction(current, transaction);
+      this.writeChanges(transaction, stagedSet);
       this.setMetadata('revision', String(next.revision));
       this.database.exec('COMMIT');
     } catch (error) {
@@ -189,11 +165,11 @@ export class SqliteProgressStorage implements ProgressStorage {
       }
       throw error;
     }
-    for (const [version, bank] of stagedBanks) {
-      this.bankCache.set(version, {
-        serialized: JSON.stringify(bank),
-        bank,
-      });
+    if (stagedSet) {
+      this.cachedSet = {
+        serialized: JSON.stringify(stagedSet),
+        set: stagedSet,
+      };
     }
     this.notifyListeners();
     return next;
@@ -222,7 +198,7 @@ export class SqliteProgressStorage implements ProgressStorage {
     this.closed = true;
     this.stopDataVersionMonitor();
     this.listeners.clear();
-    this.bankCache.clear();
+    this.cachedSet = null;
     this.database.close();
   }
 
@@ -280,7 +256,7 @@ export class SqliteProgressStorage implements ProgressStorage {
       if (existing.length === 0) {
         this.database.exec(`
           CREATE TABLE progress_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-          CREATE TABLE progress_banks (version TEXT PRIMARY KEY, payload TEXT NOT NULL);
+          CREATE TABLE progress_set (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL);
           CREATE TABLE progress_learning (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
           CREATE TABLE progress_runs (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
           CREATE TABLE progress_owners (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
@@ -309,30 +285,54 @@ export class SqliteProgressStorage implements ProgressStorage {
     this.assertSchema();
     return {
       revision: parseRevision(this.metadata('revision')),
-      banks: this.rows('progress_banks'),
+      set: this.setPayload(),
       learning: this.rows('progress_learning').map((row) => parsePayload(row, 'questionId')),
       runs: this.rows('progress_runs').map((row) => parsePayload(row, 'id')),
       owners: this.rows('progress_owners').map((row) => parsePayload(row, 'runId')),
     };
   }
 
-  private async parseBank(row: PersistedRow): Promise<Bank> {
-    const cached = this.bankCache.get(row.id);
-    if (cached?.serialized === row.payload) {
-      return cached.bank;
+  private async parseSet(serialized: string): Promise<QuestionSet> {
+    if (this.cachedSet?.serialized === serialized) {
+      return this.cachedSet.set;
     }
-    const parsed = parsePayload(row, 'version');
-    const bank = await validateBank(parsed);
-    this.bankCache.set(row.id, {
-      serialized: row.payload,
-      bank,
-    });
-    return bank;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(serialized);
+    } catch {
+      throw new Error('Persisted question set is not valid JSON.');
+    }
+    const set = await validateQuestionSet(parsed);
+    this.cachedSet = {
+      serialized,
+      set,
+    };
+    return set;
   }
 
-  private rows(table: 'progress_banks' | 'progress_learning' | 'progress_runs' | 'progress_owners'): PersistedRow[] {
-    const identity = table === 'progress_banks' ? 'version' : 'id';
-    return this.database.prepare(`SELECT ${identity} AS id, payload FROM ${table} ORDER BY ${identity}`).all().map((row) => {
+  private currentSetFromCache(serialized: string | null): QuestionSet | null {
+    if (serialized === null) {
+      return null;
+    }
+    if (this.cachedSet?.serialized !== serialized) {
+      throw new StorageConflictError('Question set changed during preparation. Reload storage.');
+    }
+    return this.cachedSet.set;
+  }
+
+  private setPayload(): string | null {
+    const row = this.database.prepare('SELECT payload FROM progress_set WHERE id = 1').get();
+    if (!row) {
+      return null;
+    }
+    if (typeof row.payload !== 'string') {
+      throw new TypeError('Persisted question set has an invalid payload.');
+    }
+    return row.payload;
+  }
+
+  private rows(table: 'progress_learning' | 'progress_runs' | 'progress_owners'): PersistedRow[] {
+    return this.database.prepare(`SELECT id, payload FROM ${table} ORDER BY id`).all().map((row) => {
       if (typeof row.id !== 'string' || typeof row.payload !== 'string') {
         throw new TypeError(`Persisted ${table} row has an invalid shape.`);
       }
@@ -360,12 +360,14 @@ export class SqliteProgressStorage implements ProgressStorage {
     ).run(key, value);
   }
 
-  private writeChanges(transaction: Transaction): void {
+  private writeChanges(transaction: Transaction, stagedSet: QuestionSet | null): void {
     for (const change of transaction.changes) {
       switch (change.kind) {
-        case 'putBank': {
-          this.database.prepare('INSERT INTO progress_banks VALUES (?, ?) ON CONFLICT(version) DO NOTHING')
-            .run(change.bank.version, JSON.stringify(change.bank));
+        case 'seedSet': {
+          if (!stagedSet) {
+            throw new Error('Question set seed has not been validated.');
+          }
+          this.database.prepare('INSERT INTO progress_set (id, payload) VALUES (1, ?)').run(JSON.stringify(stagedSet));
           break;
         }
         case 'putLearning': {

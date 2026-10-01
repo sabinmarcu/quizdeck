@@ -3,8 +3,8 @@ import {
   createStore,
 } from 'jotai';
 import type { Store } from 'jotai/vanilla';
-import { loadBundledBank } from '../data/bank';
-import type { Bank } from '../data/bank';
+import { createDemoSet } from '../data/demo';
+import type { QuestionSet } from '../data/question-set';
 import type { Snapshot } from '../data/records';
 import { StorageConflictError } from '../data/storage';
 import type {
@@ -19,14 +19,13 @@ export type Startup =
   | { status: 'error'; message: string }
   | {
     status: 'ready';
-    bank: Bank;
-    banks: ReadonlyMap<string, Bank>;
+    set: QuestionSet;
     snapshot: Snapshot;
     location: string;
     retention: ProgressStorage['retention'];
   };
 
-export interface BankInfo {
+export interface SetInfo {
   questionCount: number;
   answerCount: number;
   missingExplanationCount: number;
@@ -44,19 +43,19 @@ export const pendingAtom = atom(false);
 export const actionErrorAtom = atom<string | null>(null);
 const storageAtom = atom<ProgressStorage | null>(null);
 const writeBusyAtom = atom(false);
-const bankAtom = atom((get) => {
+const currentSetAtom = atom((get) => {
   const startup = get(startupAtom);
-  return startup.status === 'ready' ? startup.bank : null;
+  return startup.status === 'ready' ? startup.set : null;
 });
-export const bankInfoAtom = atom<BankInfo | null>((get) => {
-  const bank = get(bankAtom);
-  if (!bank) {
+export const setInfoAtom = atom<SetInfo | null>((get) => {
+  const currentSet = get(currentSetAtom);
+  if (!currentSet) {
     return null;
   }
   return {
-    questionCount: bank.questions.length,
-    answerCount: bank.questions.reduce((count, question) => count + question.answers.length, 0),
-    missingExplanationCount: bank.questions.reduce(
+    questionCount: currentSet.questionCount,
+    answerCount: currentSet.questions.reduce((count, { answers }) => count + answers.length, 0),
+    missingExplanationCount: currentSet.questions.reduce(
       (count, question) => count
         + question.answers.filter((answer) => !answer.justification).length,
       0,
@@ -64,6 +63,12 @@ export const bankInfoAtom = atom<BankInfo | null>((get) => {
   };
 });
 
+function requireCurrentSet(snapshot: Snapshot): QuestionSet {
+  if (!snapshot.currentSet) {
+    throw new Error('The saved question set is unavailable. Progress was not reset.');
+  }
+  return snapshot.currentSet;
+}
 export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) => {
   const storage = get(storageAtom);
   const startup = get(startupAtom);
@@ -82,12 +87,7 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
     if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
       set(startupAtom, {
         ...latest,
-        banks: new Map([
-          ...latest.banks,
-          ...changes.flatMap((change) => (change.kind === 'putBank'
-            ? [[change.bank.version, change.bank] as const]
-            : [])),
-        ]),
+        set: requireCurrentSet(snapshot),
         snapshot,
       });
     }
@@ -101,18 +101,6 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
   }
 });
 
-async function loadSavedBanks(storage: ProgressStorage, snapshot: Snapshot) {
-  const banks = new Map<string, Bank>();
-  for (const entry of snapshot.banks) {
-    const bank = await storage.getBank(entry.version);
-    if (!bank) {
-      throw new Error('A saved question bank is unavailable. Progress was not reset.');
-    }
-    banks.set(entry.version, bank);
-  }
-  return banks;
-}
-
 export const refreshProgressAtom = atom(null, async (get, set) => {
   const storage = get(storageAtom);
   const current = get(startupAtom);
@@ -120,13 +108,12 @@ export const refreshProgressAtom = atom(null, async (get, set) => {
     throw new Error('Progress storage is not ready.');
   }
   const snapshot = await storage.load();
-  const banks = await loadSavedBanks(storage, snapshot);
   const latest = get(startupAtom);
   if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
     set(startupAtom, {
       ...latest,
       snapshot,
-      banks,
+      set: requireCurrentSet(snapshot),
     });
   }
   return snapshot;
@@ -158,13 +145,12 @@ export const mutateProgressAtom = atom(null, async (
       expectedRevision: loaded.revision,
       changes,
     });
-    const banks = await loadSavedBanks(storage, snapshot);
     const latest = get(startupAtom);
     if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
       set(startupAtom, {
         ...latest,
         snapshot,
-        banks,
+        set: requireCurrentSet(snapshot),
       });
     }
     return snapshot;
@@ -223,13 +209,12 @@ export function createAppSession(
     }
     try {
       const snapshot = await storage.load();
-      const banks = await loadSavedBanks(storage, snapshot);
       const latest = store.get(startupAtom);
       if (!closed && version === refreshVersion && latest.status === 'ready'
         && snapshot.revision >= latest.snapshot.revision) {
         store.set(startupAtom, {
           ...latest,
-          banks,
+          set: requireCurrentSet(snapshot),
           snapshot,
         });
       }
@@ -255,20 +240,19 @@ export function createAppSession(
         store.set(startupAtom, { status: 'loading' });
         store.set(actionErrorAtom, null);
         try {
-          const bank = await loadBundledBank();
           storage ??= await openStorage();
           if (closed) {
             storage.close();
             return;
           }
           let snapshot = await storage.load();
-          if (snapshot.banks.every((entry) => entry.version !== bank.version)) {
+          if (snapshot.currentSet === null) {
             try {
               snapshot = await storage.commit({
                 expectedRevision: snapshot.revision,
                 changes: [{
-                  kind: 'putBank',
-                  bank,
+                  kind: 'seedSet',
+                  set: await createDemoSet(Date.now()),
                 }],
               });
             } catch (error) {
@@ -276,18 +260,16 @@ export function createAppSession(
                 throw error;
               }
               snapshot = await storage.load();
-              if (snapshot.banks.every((entry) => entry.version !== bank.version)) {
+              if (snapshot.currentSet === null) {
                 throw error;
               }
             }
           }
-          const banks = await loadSavedBanks(storage, snapshot);
           if (!closed) {
             store.set(storageAtom, storage);
             store.set(startupAtom, {
               status: 'ready',
-              bank,
-              banks,
+              set: requireCurrentSet(snapshot),
               snapshot,
               location: storage.location,
               retention: storage.retention,

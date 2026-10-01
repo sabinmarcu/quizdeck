@@ -8,7 +8,7 @@ import { InkCommand } from './InkCommand';
 import { WebCommand } from './WebCommand';
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
-  const cli = new Cli({ binaryName: 'claude-certification' });
+  const cli = new Cli({ binaryName: 'quizdeck' });
   cli.register(InkCommand);
   cli.register(WebCommand);
   cli.register(Builtins.HelpCommand);
