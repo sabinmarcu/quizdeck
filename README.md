@@ -1,16 +1,15 @@
 # claude-certification
 
 React + TypeScript application with React DOM/Vite and an Ink terminal interface.
-Phases 1–3 are implemented: transactional local persistence, shared Jotai state,
-Clipanion launch commands, searchable learning, and persisted/timed practice runs
-in both interfaces. Phase 4 integration is exercised on Linux/Chromium; native
-Windows and Safari/iOS Safari verification remains an open delivery gate.
+Learning, practice, transactional local persistence, shared Jotai state, and
+Clipanion launch commands are implemented in both interfaces. A planned migration
+turns this into a generic, data-free question-set tool with loadable JSON sets;
+native Windows and Safari/iOS Safari verification remains open.
 
 [Application vision](docs/planning/vision.md) ·
-[Phase 1](docs/planning/01-foundations-and-launch.md) ·
-[Phase 2](docs/planning/02-learning-mode.md) ·
-[Phase 3](docs/planning/03-practice-mode.md) ·
-[Phase 4 evidence and open gates](docs/planning/04-integration-and-delivery.md)
+[Phase 1 — Identity and question set](docs/planning/01-identity-and-question-set.md) ·
+[Phase 2 — Loading question sets](docs/planning/02-loading-question-sets.md) ·
+[Phase 3 — Distribution and documentation](docs/planning/03-distribution-and-documentation.md)
 
 ## Development and launch
 
