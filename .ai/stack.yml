@@ -4,8 +4,8 @@ presets: []
 modules:
   - arch/node-package
   - arch/node-root-package
+  - arch/node-tool
   - arch/react
-  - arch/web-application
   - global/core
   - guardrails/web-platform
   - guardrails/web-style

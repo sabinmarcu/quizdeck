@@ -27,10 +27,12 @@ Before working in this repository, open, read, and follow every linked file belo
 - [tooling/husky: husky-configuration.instructions.md](../.github/instructions/shared/husky/husky-configuration.instructions.md)
 - [tooling/lint-staged: lint-staged-configuration.instructions.md](../.github/instructions/shared/lint-staged/lint-staged-configuration.instructions.md)
 - [arch/node-root-package: node-root-package-architecture.instructions.md](../.github/instructions/shared/node-root-package/node-root-package-architecture.instructions.md)
-- [arch/react: react-architecture.instructions.md](../.github/instructions/shared/react/react-architecture.instructions.md)
+- [arch/node-package-library: node-package-library-architecture.instructions.md](../.github/instructions/shared/node-package-library/node-package-library-architecture.instructions.md)
+- [arch/node-library: node-library-architecture.instructions.md](../.github/instructions/shared/node-library/node-library-architecture.instructions.md)
 - [arch/node-package-application: node-package-application-architecture.instructions.md](../.github/instructions/shared/node-package-application/node-package-application-architecture.instructions.md)
+- [arch/node-tool: node-tool-architecture.instructions.md](../.github/instructions/shared/node-tool/node-tool-architecture.instructions.md)
+- [arch/react: react-architecture.instructions.md](../.github/instructions/shared/react/react-architecture.instructions.md)
 - [guardrails/web-platform: web-platform.instructions.md](../.github/instructions/shared/web-platform/web-platform.instructions.md)
-- [arch/web-application: web-application-architecture.instructions.md](../.github/instructions/shared/web-application/web-application-architecture.instructions.md)
 - [guardrails/web-style: web-styling.instructions.md](../.github/instructions/shared/frontend/web-styling.instructions.md)
 - [guardrails/web-style: web-accessibility.instructions.md](../.github/instructions/shared/frontend/web-accessibility.instructions.md)
 - [lang/typescript: typescript-architecture.instructions.md](../.github/instructions/shared/typescript/typescript-architecture.instructions.md)
@@ -52,6 +54,7 @@ Before working in this repository, open, read, and follow every linked file belo
 - [mixin/husky-typescript: husky-typescript.instructions.md](../.github/instructions/shared/mixins/husky-typescript/husky-typescript.instructions.md)
 - [mixin/react-eslint: react-eslint.instructions.md](../.github/instructions/shared/mixins/react-eslint/react-eslint.instructions.md)
 - [mixin/typescript-eslint: typescript-eslint.instructions.md](../.github/instructions/shared/mixins/typescript-eslint/typescript-eslint.instructions.md)
+- [mixin/typescript-library: typescript-library.instructions.md](../.github/instructions/shared/mixins/typescript-library/typescript-library.instructions.md)
 - [mixin/web-react-eslint: web-react-eslint.instructions.md](../.github/instructions/shared/mixins/web-react-eslint/web-react-eslint.instructions.md)
 
 ## Repository-Local Override Locations
@@ -69,10 +72,12 @@ Before working in this repository, open, read, and follow every linked file belo
 - `.github/instructions/local/husky/`
 - `.github/instructions/local/lint-staged/`
 - `.github/instructions/local/node-root-package/`
-- `.github/instructions/local/react/`
+- `.github/instructions/local/node-package-library/`
+- `.github/instructions/local/node-library/`
 - `.github/instructions/local/node-package-application/`
+- `.github/instructions/local/node-tool/`
+- `.github/instructions/local/react/`
 - `.github/instructions/local/web-platform/`
-- `.github/instructions/local/web-application/`
 - `.github/instructions/local/frontend/`
 - `.github/instructions/local/typescript/`
 - `.github/instructions/local/yarn/`
@@ -83,6 +88,7 @@ Before working in this repository, open, read, and follow every linked file belo
 - `.github/instructions/local/mixins/husky-typescript/`
 - `.github/instructions/local/mixins/react-eslint/`
 - `.github/instructions/local/mixins/typescript-eslint/`
+- `.github/instructions/local/mixins/typescript-library/`
 - `.github/instructions/local/mixins/web-react-eslint/`
 
 Managed shared assets are replaced during reconciliation. Keep repository-specific tuning in the override locations above.

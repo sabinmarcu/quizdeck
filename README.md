@@ -3,8 +3,8 @@
 Generic question-set study tool built with React + TypeScript, React DOM/Vite,
 and an Ink terminal interface. Both interfaces start with a persisted three-question
 **Demo Set** and support learning, practice, timing, history, reports, and loading
-replacement JSON sets. Phases 1 and 2 are implemented; distribution launchers
-remain in Phase 3. Native Windows and Safari/iOS Safari verification is waived.
+replacement JSON sets. All three implementation phases are complete, including
+standalone launchers. Native Windows and Safari/iOS Safari verification is waived.
 
 [Application vision](docs/planning/vision.md) ·
 [Phase 1 — Identity and question set](docs/planning/01-identity-and-question-set.md) ·
@@ -15,6 +15,8 @@ remain in Phase 3. Native Windows and Safari/iOS Safari verification is waived.
 
 Node.js **26.10.0** and Yarn **4.18.1** are pinned in `package.json`. Yarn uses the
 `node-modules` linker; npm and Corepack are not used.
+Standalone execution supports Node.js **26.10.0 or newer**. This package remains
+private: it exposes executable launchers, not a published library API.
 
 ```sh
 yarn install
@@ -24,6 +26,7 @@ yarn dev:web         # Vite development/HMR server
 yarn build           # Typecheck and build both renderers
 yarn start:cli       # Run the built Ink interface
 yarn start:cli web   # Serve the built web application
+yarn run quizdeck --help  # Built Node entry exposed through the package script
 ```
 
 `yarn dev:cli` also launches the source Ink command. `yarn cli web` serves the same
@@ -36,6 +39,57 @@ that URL. Open it in a browser; Ctrl-C stops the host. An occupied port fails
 without choosing a different origin. Web assets resolve relative to the application
 installation, not the caller's current directory. Only built assets are served;
 source files and the SQLite database are not web endpoints.
+
+## Standalone launchers
+
+After `yarn install` and `yarn build`, the launchers can run outside the checkout.
+They forward arguments unchanged, preserve the caller's working directory, and
+propagate the CLI's exit status. Relative `load` paths therefore resolve against
+that caller directory. Installed runtime dependencies and both build directories
+must remain available beside the launchers.
+
+| Entry | Purpose |
+| --- | --- |
+| `bin/quizdeck.js` | Executable Node ESM bootstrap; target of the package `bin` entry |
+| `bin/quizdeck` | Bash launcher; follows absolute or relative symlink chains |
+| `bin/quizdeck.cmd` | Command Prompt launcher, checked out with CRLF line endings |
+| `bin/quizdeck.ps1` | PowerShell launcher |
+
+### Bash / Unix
+
+```sh
+export PATH="/path/to/quizdeck/bin:$PATH"
+quizdeck --help
+quizdeck load ./questions.json --yes
+quizdeck web
+```
+
+### Command Prompt
+
+```bat
+set "PATH=C:\path\to\quizdeck\bin;%PATH%"
+quizdeck.cmd --help
+quizdeck.cmd load .\questions.json --yes
+```
+
+### PowerShell
+
+```powershell
+$env:Path = "C:\path\to\quizdeck\bin;$env:Path"
+quizdeck.ps1 --help
+quizdeck.ps1 load .\questions.json --yes
+```
+
+The Node entry also works directly with `node /path/to/quizdeck/bin/quizdeck.js`.
+From the checkout, `yarn run quizdeck` invokes that same entry through a package
+script. No global install, registry publication, or execution-policy changes are
+performed.
+
+The shell launchers report a missing `node` clearly. When `dist/cli/main.js` is
+missing, the Node entry writes a build hint to stderr and exits 1; other import
+failures are not disguised as a missing build. The launchers use the built CLI,
+not a development server or an alternate argument parser.
+
 
 ## Shell controls
 
@@ -236,6 +290,7 @@ set. Tests use generated fixtures rather than subject content.
 yarn cli load sets/questions.json
 yarn cli load ./networkBasics.json --yes
 yarn start:cli load ./networkBasics.json --yes
+quizdeck load ./networkBasics.json --yes
 ```
 
 Relative paths resolve against the process working directory. Files are read and

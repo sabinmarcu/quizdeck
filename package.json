@@ -2,7 +2,13 @@
   "name": "quizdeck",
   "private": true,
   "type": "module",
+  "bin": {
+    "quizdeck": "bin/quizdeck.js"
+  },
   "packageManager": "yarn@4.18.1",
+  "engines": {
+    "node": ">=26.10.0"
+  },
   "devEngines": {
     "runtime": {
       "name": "node",
@@ -20,14 +26,15 @@
     "dev:web": "vite",
     "dev:cli": "tsx src/cli/main.tsx",
     "cli": "tsx src/cli/main.tsx",
+    "quizdeck": "node bin/quizdeck.js",
     "build": "yarn typecheck && yarn build:web && yarn build:cli",
     "build:web": "vite build",
     "build:cli": "esbuild src/cli/main.tsx --bundle --packages=external --format=esm --platform=node --target=node22 --outdir=dist/cli",
     "start:cli": "node dist/cli/main.js",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src *.config.{js,mjs,ts}",
-    "lint:fix": "eslint src *.config.{js,mjs,ts} --fix",
+    "lint": "eslint src bin/*.js *.config.{js,mjs,ts}",
+    "lint:fix": "eslint src bin/*.js *.config.{js,mjs,ts} --fix",
     "test": "vitest run",
     "commitlint": "commitlint --edit",
     "lint-staged": "lint-staged",

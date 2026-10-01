@@ -1,6 +1,6 @@
 # Phase 3 — Distribution and documentation
 
-**Status:** planned. **Dependencies:** [Phase 1](01-identity-and-question-set.md)
+**Status:** implemented. **Dependencies:** [Phase 1](01-identity-and-question-set.md)
 and [Phase 2](02-loading-question-sets.md).
 
 [Vision](vision.md) · Previous: [Phase 2 — Loading question sets](02-loading-question-sets.md)
@@ -18,6 +18,10 @@ finished product, and no former branding remains in tracked files.
   (`bin: { yarn: "bin/yarn.js" }` beside `bin/yarn`, `bin/yarn.cmd`,
   `bin/yarn.ps1`): package managers run or shim `bin` targets with Node, so a
   shell script target would break `yarn run quizdeck` and npm's generated shims.
+- Yarn resolves workspace scripts and dependency binaries. An explicit `quizdeck`
+  package script invokes the Node entry so `yarn run quizdeck` works in this private
+  workspace; the `bin` field remains the executable contract for package consumers.
+- Runtime support is declared as Node.js `>=26.10.0`, matching the verified minimum.
 - The repository folder name is the only permitted branding exception.
 - Registry publication stays out of scope.
 
@@ -39,6 +43,7 @@ finished product, and no former branding remains in tracked files.
      `Get-Command node`; `& node (Join-Path $PSScriptRoot 'quizdeck.js') @args`;
      `exit $LASTEXITCODE`.
    - `package.json`: `"bin": { "quizdeck": "bin/quizdeck.js" }`.
+     Also define `scripts.quizdeck` as `node bin/quizdeck.js` for local Yarn use.
    - `.gitattributes`: `bin/quizdeck text eol=lf`, `bin/quizdeck.cmd text eol=crlf`;
      `.editorconfig`: `[*.cmd] end_of_line = crlf`. Commit `bin/quizdeck` and
      `bin/quizdeck.js` with the executable bit (`git update-index --chmod=+x`).
@@ -81,6 +86,17 @@ acceptance-scenario runs.
   and platform support requirements are unchanged.
 - Run the branding audit, `yarn test`, `yarn typecheck`, `yarn lint`, and
   `yarn build`.
+
+Verified on Linux with the pinned toolchain: 109 tests, typecheck, lint fixes, both
+production builds, Bash syntax, and Node entry syntax pass. Actual launchers were
+run from outside the checkout for help, a spaced relative file path, invalid-file
+exit status, and the default Ink interface. A relative symlink chain on `PATH`
+preserved caller path resolution. Missing Node and a temporarily unavailable build
+produced the expected stderr diagnostics and exit 1; the original build was restored.
+An unrelated missing dependency propagated instead of receiving the build hint.
+The occupied-port `web` failure was exercised; the existing server was left running.
+The tracked-file branding audit is clean. Approved AI-stack reconciliation is current.
+Native Windows and Safari/iOS Safari verification remains waived.
 
 ## Exit criteria
 

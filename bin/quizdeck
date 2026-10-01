@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v node >/dev/null 2>&1; then
+  printf '%s\n' 'Quizdeck requires Node.js on PATH.' >&2
+  exit 1
+fi
+
+script=${BASH_SOURCE[0]}
+if [[ "$script" != /* ]]; then
+  script="$PWD/$script"
+fi
+while [[ -L "$script" ]]; do
+  directory=$(CDPATH= cd -- "$(dirname "$script")" && pwd -P)
+  target=$(readlink "$script")
+  if [[ "$target" == /* ]]; then
+    script=$target
+  else
+    script="$directory/$target"
+  fi
+done
+directory=$(CDPATH= cd -- "$(dirname "$script")" && pwd -P)
+
+exec node "$directory/quizdeck.js" "$@"

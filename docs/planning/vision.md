@@ -3,8 +3,8 @@
 **Status: working product vision with linked implementation phases.** This is the
 behavioral source of truth for both interfaces. Remaining proposed defaults are
 identified in section 2; the phase plans carry those defaults explicitly rather
-than silently treating them as approved. Phases 1 and 2 are implemented;
-distribution remains planned in Phase 3.
+than silently treating them as approved. All three linked implementation phases
+are complete. Native Windows and Safari/iOS Safari verification is waived.
 
 ## 1. Scope and confirmed requirements
 
@@ -243,8 +243,9 @@ Follow the layout Yarn itself ships: the `package.json` `bin` field maps
   directory, and propagate the exit status.
 - `.gitattributes` keeps `bin/quizdeck` LF with the executable bit and the `.cmd`
   file CRLF.
-- Publication to a registry is not part of this vision; the `bin` field supports
-  `yarn run quizdeck`, `yarn link`/`npm link`, and local installs.
+- Publication to a registry is not part of this vision. The `bin` field declares the
+  package executable; an explicit `quizdeck` package script invokes that Node entry
+  for `yarn run quizdeck` in the private workspace.
 
 | Invocation | Behavior |
 | --- | --- |
@@ -766,15 +767,15 @@ These are product outcomes, not implementation phases or tests.
 
 ## 13. Current state and phased plan
 
-The learning, practice, persistence, Clipanion launch, and web hosting behavior in
-sections 5-10 is implemented against a bundled, branded question bank with a
-historical bank catalog and a fixed 60-question run. The phases below move from
-that state to this vision.
+All three phases below are implemented. Both interfaces persist one current set,
+seed the demo only into an empty store, and load validated files with atomic
+replace-and-reset semantics. Practice uses `min(60, N)` questions, and standalone
+launchers run the built local CLI without requiring a package installation.
 
-Execute phases in order. Each phase is separated by capability, not renderer: the
-same applicable behavior is delivered for Ink and React DOM within that phase.
-Every phase ends with a working application; none ships a store layout that a
-later phase must migrate.
+The phase plans record the completed cutover. They were delivered in order, grouped
+by capability rather than renderer: shared behavior, Ink, and React DOM were
+implemented together. Each phase ended with a working application and avoided
+introducing store layouts that a later phase would need to migrate.
 
 | Phase | Scope | Dependencies | Plan |
 | --- | --- | --- | --- |

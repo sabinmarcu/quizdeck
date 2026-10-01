@@ -5135,6 +5135,8 @@ __metadata:
     vitest: "npm:^5.0.2"
     wrap-ansi: "npm:^10.0.2"
     zod: "npm:^4.6.5"
+  bin:
+    quizdeck: bin/quizdeck.js
   languageName: unknown
   linkType: soft
 
