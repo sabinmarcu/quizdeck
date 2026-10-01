@@ -8,9 +8,15 @@ import {
   pendingAtom,
   startupAtom,
 } from './application';
+import {
+  learningQueryAtom,
+  learningFilterAtom,
+  learningFocusedIdAtom,
+  learningQuestionIdAtom,
+  learningDetailOrderAtom,
+  learningResetOpenAtom,
+} from './learning-state';
 
-export const learningFilters = ['all', 'unanswered', 'completed', 'correctly_answered', 'incorrectly_answered'] as const;
-export type LearningFilter = typeof learningFilters[number];
 export type LearningStatus = LearningAnswer['outcome'] | 'unanswered';
 export const learningStatusLabels: Record<LearningStatus | 'all' | 'completed', string> = {
   all: 'All',
@@ -30,13 +36,6 @@ export interface LearningDetail {
   status: LearningStatus;
   choices: LearningChoice[];
 }
-
-export const learningQueryAtom = atom('');
-export const learningFilterAtom = atom<LearningFilter>('all');
-export const learningFocusedIdAtom = atom<number | null>(null);
-export const learningQuestionIdAtom = atom<number | null>(null);
-export const learningDetailOrderAtom = atom<readonly number[]>([]);
-export const learningResetOpenAtom = atom(false);
 
 export function learningAnswerIndex(key: string): number | null {
   if (key.length !== 1) {

@@ -62,12 +62,23 @@ function parsePayload(row: PersistedRow, identity: 'questionId' | 'id' | 'runId'
 }
 
 async function prepareSet(transaction: Transaction): Promise<QuestionSet | null> {
-  for (const change of transaction.changes) {
-    if (change.kind === 'seedSet') {
-      return validateQuestionSet(change.set);
-    }
+  const setChanges = transaction.changes.filter((change) => (
+    change.kind === 'seedSet' || change.kind === 'replaceSet'
+  ));
+  if (setChanges.length === 0) {
+    return null;
   }
-  return null;
+  if (setChanges.length > 1) {
+    throw new Error('A transaction can change the question set only once.');
+  }
+  const change = setChanges[0];
+  if (!change) {
+    throw new Error('Question set change is unavailable.');
+  }
+  if (change.kind === 'replaceSet' && change.set.source !== 'file') {
+    throw new Error('Replacement question sets must come from a file.');
+  }
+  return validateQuestionSet(change.set);
 }
 
 function snapshotFrom(captured: CapturedSnapshot, currentSet: QuestionSet | null): Snapshot {
@@ -368,6 +379,20 @@ export class SqliteProgressStorage implements ProgressStorage {
             throw new Error('Question set seed has not been validated.');
           }
           this.database.prepare('INSERT INTO progress_set (id, payload) VALUES (1, ?)').run(JSON.stringify(stagedSet));
+          break;
+        }
+        case 'replaceSet': {
+          if (!stagedSet) {
+            throw new Error('Question set replacement has not been validated.');
+          }
+          this.database.exec(`
+            DELETE FROM progress_learning;
+            DELETE FROM progress_runs;
+            DELETE FROM progress_owners;
+          `);
+          this.database.prepare(
+            'INSERT INTO progress_set (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
+          ).run(JSON.stringify(stagedSet));
           break;
         }
         case 'putLearning': {

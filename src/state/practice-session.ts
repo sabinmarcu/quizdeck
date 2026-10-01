@@ -23,6 +23,7 @@ export const practiceOwnedAtom = atom(false);
 export const practiceBusyAtom = atom(false);
 export const practiceElapsedAtom = atom(0);
 export const practiceErrorAtom = atom<string | null>(null);
+export const practiceNoticeAtom = atom<string | null>(null);
 const controllerAtom = atom<PracticeController | null>(null);
 const leaseMs = 5000;
 
@@ -41,6 +42,8 @@ export interface PracticeController {
   leave(): Promise<boolean>;
   checkpoint(): Promise<boolean>;
   refresh(): Promise<boolean>;
+  reconcile(snapshot: Snapshot): boolean;
+  prepareReplacement(): Promise<void>;
   dispose(): void;
 }
 export namespace createPracticeController {
@@ -93,6 +96,23 @@ export function createPracticeController(
     }
     clearTimer();
     store.set(practiceOwnedAtom, false);
+  };
+  const reconcile = (snapshot: Snapshot) => {
+    const selectedId = store.get(practiceSelectedIdAtom);
+    if ((activeId === null || snapshot.runs.some((run) => run.id === activeId))
+      && (selectedId === null || snapshot.runs.some((run) => run.id === selectedId))) {
+      return false;
+    }
+    clearTimer();
+    activeId = null;
+    frozenElapsed = null;
+    intervalBase = 0;
+    store.set(practiceSelectedIdAtom, null);
+    store.set(practiceOwnedAtom, false);
+    store.set(practiceElapsedAtom, 0);
+    store.set(practiceErrorAtom, null);
+    store.set(practiceNoticeAtom, 'The question set was replaced. Practice returned to history.');
+    return true;
   };
   const fail = (error: unknown) => {
     const message = error instanceof Error ? error.message : 'Practice progress could not be saved.';
@@ -148,6 +168,10 @@ export function createPracticeController(
       try {
         return await work();
       } catch (error) {
+        if (store.get(practiceNoticeAtom) !== null
+          && store.get(practiceSelectedIdAtom) === null) {
+          return false;
+        }
         fail(error);
         return false;
       } finally {
@@ -175,7 +199,11 @@ export function createPracticeController(
             elapsedMs: Math.max(run.elapsedMs, duration),
           }, at);
         }, true);
-        const saved = snapshot.runs.find((run) => run.id === id)!;
+        const saved = snapshot.runs.find((run) => run.id === id);
+        if (!saved) {
+          reconcile(snapshot);
+          return true;
+        }
         store.set(practiceElapsedAtom, saved.elapsedMs);
         return true;
       } catch (error) {
@@ -234,6 +262,9 @@ export function createPracticeController(
       return true;
     }
     await persistPause();
+    if (store.get(practiceSelectedIdAtom) !== id) {
+      return false;
+    }
     const at = now();
     const snapshot = await persistence.mutate((current) => {
       const run = runFrom(current, id);
@@ -242,19 +273,25 @@ export function createPracticeController(
         status: 'active',
       }, at);
     });
-    beginInterval(snapshot.runs.find((run) => run.id === id)!);
+    const saved = snapshot.runs.find((run) => run.id === id);
+    if (!saved) {
+      reconcile(snapshot);
+      return false;
+    }
+    beginInterval(saved);
     return true;
   };
 
   const controller: PracticeController = {
     start: () => userAction(async () => {
+      store.set(practiceNoticeAtom, null);
       await persistPause();
       const startup = persistence.read();
       if (startup === null) {
         throw new Error('Load progress storage before starting practice.');
       }
       const run = createPracticeRun(startup.set, crypto.randomUUID(), now());
-      await persistence.mutate(() => [
+      const saved = await persistence.mutate(() => [
         {
           kind: 'putRun',
           run,
@@ -269,8 +306,14 @@ export function createPracticeController(
           now: now(),
         },
       ]);
-      store.set(practiceSelectedIdAtom, run.id);
-      beginInterval(run);
+      const committed = saved.runs.find((entry) => entry.id === run.id);
+      if (!committed) {
+        reconcile(saved);
+        return false;
+      }
+      store.set(practiceNoticeAtom, null);
+      store.set(practiceSelectedIdAtom, committed.id);
+      beginInterval(committed);
       return true;
     }),
     open: (runId) => userAction(async () => {
@@ -279,9 +322,13 @@ export function createPracticeController(
       const startup = persistence.read();
       const run = startup?.snapshot.runs.find((entry) => entry.id === runId);
       if (!run) {
+        if (store.get(practiceNoticeAtom) !== null) {
+          return false;
+        }
         throw new Error('That saved practice run was not found.');
       }
       store.set(practiceSelectedIdAtom, run.id);
+      store.set(practiceNoticeAtom, null);
       if (run.status === 'completed') {
         return true;
       }
@@ -310,7 +357,11 @@ export function createPracticeController(
         });
         return guardedChanges(next, at, next.status === 'completed');
       });
-      const saved = snapshot.runs.find((run) => run.id === validated.runId)!;
+      const saved = snapshot.runs.find((run) => run.id === validated.runId);
+      if (!saved) {
+        reconcile(snapshot);
+        return false;
+      }
       store.set(practiceElapsedAtom, saved.elapsedMs);
       if (saved.status === 'completed') {
         clearTimer();
@@ -365,6 +416,11 @@ export function createPracticeController(
     },
     checkpoint,
     refresh: () => userAction(async () => { await persistence.refresh(); return true; }),
+    reconcile,
+    prepareReplacement: async () => {
+      freeze();
+      await enqueue(async () => true);
+    },
     dispose: () => {
       disposed = true;
       freeze();
@@ -398,3 +454,9 @@ export const leavePracticeAtom = atom(null, (get) => (
 export const refreshPracticeAtom = atom(null, (get) => (
   get(controllerAtom)?.refresh() ?? Promise.resolve(false)
 ));
+export const reconcilePracticeAtom = atom(null, (get, _set, snapshot: Snapshot) => (
+  get(controllerAtom)?.reconcile(snapshot) ?? false
+));
+export const preparePracticeReplacementAtom = atom(null, async (get) => {
+  await get(controllerAtom)?.prepareReplacement();
+});

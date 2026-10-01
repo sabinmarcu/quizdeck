@@ -20,17 +20,19 @@ import {
   learningAnswerIndex,
   learningCountsAtom,
   learningDetailAtom,
+  learningRowsAtom,
+  learningStatusLabels,
+  openLearningQuestionAtom,
+  resetLearningAtom,
+} from '../state/learning';
+import {
   learningFilterAtom,
   learningFilters,
   learningFocusedIdAtom,
   learningQuestionIdAtom,
   learningQueryAtom,
   learningResetOpenAtom,
-  learningRowsAtom,
-  learningStatusLabels,
-  openLearningQuestionAtom,
-  resetLearningAtom,
-} from '../state/learning';
+} from '../state/learning-state';
 import { LearningDialogs } from './Learning.Dialogs';
 import {
   answer,

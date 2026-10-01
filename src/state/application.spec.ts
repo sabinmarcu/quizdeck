@@ -4,6 +4,7 @@ import {
   rm,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import {
   afterEach,
   beforeEach,
@@ -19,9 +20,22 @@ import {
   commitAtom,
   createAppSession,
   pendingAtom,
+  loadQuestionSetAtom,
+  refreshProgressAtom,
   startupAtom,
 } from './application';
 import type { AppSession } from './application';
+import {
+  learningFilterAtom,
+  learningFocusedIdAtom,
+  learningQueryAtom,
+  learningQuestionIdAtom,
+} from './learning-state';
+import { openLearningQuestionAtom } from './learning';
+import {
+  practiceOwnedAtom,
+  practiceSelectedIdAtom,
+} from './practice';
 
 let directory: string;
 const sessions: AppSession[] = [];
@@ -131,5 +145,75 @@ describe('Jotai committed progress projections', () => {
     expect(left.set).toEqual(right.set);
     expect(left.snapshot.revision).toBe(1);
     expect(right.snapshot.revision).toBe(1);
+  });
+
+  it('replaces a set without checkpointing deleted practice and resets learning context', async () => {
+    const session = newSession();
+    await session.start();
+    session.store.set(learningQueryAtom, 'demo');
+    session.store.set(learningFilterAtom, 'unanswered');
+    session.store.set(openLearningQuestionAtom, 1);
+    await session.practice.start();
+    const native = new DatabaseSync(path.join(directory, 'progress.sqlite'));
+    native.exec("CREATE TRIGGER block_checkpoint BEFORE UPDATE ON progress_runs BEGIN SELECT RAISE(ABORT, 'checkpoint must not run'); END;");
+    const incoming = await createFixtureSet(5);
+    expect(await session.store.set(loadQuestionSetAtom, incoming)).toBe(true);
+    const loaded = session.store.get(startupAtom);
+    if (loaded.status !== 'ready') throw new Error('Replacement lost ready state');
+    expect(loaded.set.questions).toEqual(incoming.questions);
+    expect(loaded.snapshot.runs).toEqual([]);
+    expect(loaded.snapshot.owners).toEqual([]);
+    expect(session.store.get(practiceOwnedAtom)).toBe(false);
+    expect(session.store.get(practiceSelectedIdAtom)).toBeNull();
+    expect(session.store.get(learningQueryAtom)).toBe('');
+    expect(session.store.get(learningFilterAtom)).toBe('all');
+    expect(session.store.get(learningFocusedIdAtom)).toBeNull();
+    expect(session.store.get(learningQuestionIdAtom)).toBeNull();
+    native.close();
+  });
+
+  it('resets learning context on another session replacement and on repeated identical loads', async () => {
+    const session = newSession();
+    await session.start();
+    const incoming = await createFixtureSet(2);
+    await session.store.set(loadQuestionSetAtom, incoming);
+    const before = session.store.get(startupAtom);
+    if (before.status !== 'ready') throw new Error('Expected loaded set');
+    session.store.set(learningQueryAtom, 'old search');
+    session.store.set(openLearningQuestionAtom, 1);
+    const outside = await SqliteProgressStorage.open({ path: path.join(directory, 'progress.sqlite') });
+    await outside.commit({
+      expectedRevision: before.snapshot.revision,
+      changes: [{
+        kind: 'replaceSet',
+        set: {
+          ...incoming,
+          loadedAt: before.set.loadedAt + 1,
+        },
+      }],
+    });
+    outside.close();
+    await session.store.set(refreshProgressAtom);
+    expect(session.store.get(learningQueryAtom)).toBe('');
+    expect(session.store.get(learningQuestionIdAtom)).toBeNull();
+    session.store.set(learningQueryAtom, 'another search');
+    expect(await session.store.set(loadQuestionSetAtom, incoming)).toBe(true);
+    expect(session.store.get(learningQueryAtom)).toBe('');
+  });
+
+  it('retains committed progress and learning context when a replacement transaction fails', async () => {
+    const session = newSession();
+    await session.start();
+    await session.practice.start();
+    session.store.set(learningQueryAtom, 'keep this search');
+    const before = session.store.get(startupAtom);
+    const native = new DatabaseSync(path.join(directory, 'progress.sqlite'));
+    native.exec("CREATE TRIGGER block_replace BEFORE DELETE ON progress_runs BEGIN SELECT RAISE(ABORT, 'replacement blocked'); END;");
+    expect(await session.store.set(loadQuestionSetAtom, await createFixtureSet(2))).toBe(false);
+    expect(session.store.get(startupAtom)).toBe(before);
+    expect(session.store.get(learningQueryAtom)).toBe('keep this search');
+    expect(session.store.get(pendingAtom)).toBe(false);
+    expect(session.store.get(actionErrorAtom)).toContain('replacement blocked');
+    native.close();
   });
 });

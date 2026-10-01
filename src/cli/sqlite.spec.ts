@@ -15,6 +15,7 @@ import {
 } from 'vitest';
 import { createFixtureSet } from '../data/question-set.fixture';
 import type { QuestionSet } from '../data/question-set';
+import { createPracticeRun } from '../data/practice';
 import { StorageConflictError } from '../data/storage';
 import type { ProgressStorage } from '../data/storage';
 import { SqliteProgressStorage } from './sqlite';
@@ -228,6 +229,107 @@ describe('SQLite progress durability', () => {
     await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow();
     expect(native.prepare('SELECT payload FROM progress_set WHERE id = 1').get()?.payload).toContain('Changed question');
     native.close();
+  });
+
+  it('replaces the set and clears all saved progress atomically', async () => {
+    const storage = await openSeeded();
+    const run = createPracticeRun(set, 'run-one', 10);
+    await storage.commit({
+      expectedRevision: 1,
+      changes: [
+        {
+          kind: 'putLearning',
+          answer: correctAnswer(1),
+        },
+        {
+          kind: 'putRun',
+          run,
+        },
+        {
+          kind: 'acquireOwner',
+          owner: {
+            runId: run.id,
+            ownerId: 'owner-one',
+            expiresAt: 20,
+          },
+          now: 10,
+        },
+      ],
+    });
+    const replacement = await createFixtureSet(3);
+
+    const snapshot = await storage.commit({
+      expectedRevision: 2,
+      changes: [{
+        kind: 'replaceSet',
+        set: replacement,
+      }],
+    });
+
+    expect(snapshot.revision).toBe(3);
+    expect(snapshot.currentSet).toEqual(replacement);
+    expect(snapshot.learning).toEqual([]);
+    expect(snapshot.runs).toEqual([]);
+    expect(snapshot.owners).toEqual([]);
+  });
+
+  it('rolls back a failed set replacement without deleting prior progress', async () => {
+    const storage = await openSeeded();
+    await storage.commit({
+      expectedRevision: 1,
+      changes: [{
+        kind: 'putLearning',
+        answer: correctAnswer(1),
+      }],
+    });
+    const native = new DatabaseSync(filename);
+    native.exec(`
+      CREATE TRIGGER fail_set_replacement BEFORE UPDATE ON progress_set
+      BEGIN SELECT RAISE(ABORT, 'injected set write failure'); END;
+    `);
+    native.close();
+
+    await expect(storage.commit({
+      expectedRevision: 2,
+      changes: [{
+        kind: 'replaceSet',
+        set: await createFixtureSet(3),
+      }],
+    })).rejects.toThrow('injected set write failure');
+
+    expect(await storage.load()).toMatchObject({
+      revision: 2,
+      currentSet: set,
+      learning: [correctAnswer(1)],
+      runs: [],
+      owners: [],
+    });
+  });
+
+  it('rejects a replacement based on a stale revision without clearing progress', async () => {
+    const first = await openSeeded();
+    const second = await SqliteProgressStorage.open({ path: filename });
+    opened.push(second);
+    const stale = await second.load();
+    await first.commit({
+      expectedRevision: 1,
+      changes: [{
+        kind: 'putLearning',
+        answer: correctAnswer(1),
+      }],
+    });
+
+    await expect(second.commit({
+      expectedRevision: stale.revision,
+      changes: [{
+        kind: 'replaceSet',
+        set: await createFixtureSet(3),
+      }],
+    })).rejects.toThrow(StorageConflictError);
+    expect(await second.load()).toMatchObject({
+      currentSet: set,
+      learning: [correctAnswer(1)],
+    });
   });
 
   it('notifies subscribers when another connection commits and stops after unsubscription or close', async () => {

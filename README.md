@@ -2,9 +2,9 @@
 
 Generic question-set study tool built with React + TypeScript, React DOM/Vite,
 and an Ink terminal interface. Both interfaces start with a persisted three-question
-**Demo Set** and support learning, practice, timing, history, and reports. Phase 1
-is implemented; loading replacement JSON sets and distribution launchers remain
-in Phases 2 and 3. Native Windows and Safari/iOS Safari verification is waived.
+**Demo Set** and support learning, practice, timing, history, reports, and loading
+replacement JSON sets. Phases 1 and 2 are implemented; distribution launchers
+remain in Phase 3. Native Windows and Safari/iOS Safari verification is waived.
 
 [Application vision](docs/planning/vision.md) ·
 [Phase 1 — Identity and question set](docs/planning/01-identity-and-question-set.md) ·
@@ -97,8 +97,9 @@ the application before trying again.
 - Web uses native search/filter/buttons and reset/help dialogs, with focus restored
   after dismissal. Tab, click, touch, and text composition remain available.
 
-Query, filter, and preferred list row are retained within the application session.
-Permanent answer/status records survive application restarts.
+Query, filter, and preferred list row are retained within the application session
+until a set load resets them. Permanent answer/status records survive application
+restarts; loading a set clears them along with every practice run.
 
 ## Practice mode
 
@@ -186,6 +187,9 @@ acknowledge progress. Browser post-commit notifications reload projections acros
 tabs but do not grant writer ownership.
 SQLite observes native database changes once per second while a UI subscribes,
 refreshing another CLI's committed projection without granting writer ownership.
+When another session replaces the set, open learning context resets and a deleted
+practice run returns to history with a notice. Its timer stops; later checkpoints
+never recreate it. Repeated loads of identical content still reset all progress.
 
 Browser persistent retention is requested. Denied or unavailable retention means
 best-effort storage, not an in-memory fallback. Site-data clearing, private-session
@@ -202,6 +206,11 @@ are never automatically replaced with the demo.
 Question arrays retain source IDs, wording, and answer order. Learning lists them
 by ascending ID. Every question has at least two choices and exactly one correct
 answer; blank justifications are shown as missing from the source.
+Files are UTF-8 JSON plain arrays, not objects containing a title or questions field.
+IDs must be unique positive safe integers. Descriptions and choice text must be
+non-blank strings; justifications are strings and may be empty. Additional
+properties are rejected at every level. A failed file is rejected as a whole with
+located errors (for example, `[1].id`), never partially imported.
 
 ```ts
 {
@@ -216,9 +225,52 @@ answer; blank justifications are shown as missing from the source.
 ```
 
 The former question bank is preserved locally at gitignored `sets/questions.json`
-and is no longer tracked, imported, or bundled. JSON set loading is Phase 2; this
-phase deliberately has no loading command, file picker, or disabled placeholder.
-Tests use generated fixtures rather than subject content.
+and is no longer tracked, imported, or bundled. It can be loaded like any other
+set. Tests use generated fixtures rather than subject content.
+
+## Loading question sets
+
+### CLI
+
+```sh
+yarn cli load sets/questions.json
+yarn cli load ./networkBasics.json --yes
+yarn start:cli load ./networkBasics.json --yes
+```
+
+Relative paths resolve against the process working directory. Files are read and
+validated before storage is opened. If there are no saved learning answers or
+practice runs, a valid file loads without a prompt. Otherwise, an interactive
+terminal asks for confirmation and defaults to Cancel; `--yes` skips that prompt.
+A non-TTY invocation with saved progress requires `--yes`. Cancellation and errors
+exit non-zero without changing the current set or progress; errors are usage-style
+messages without stack traces. Successful loads report the name, question count,
+and cleared learning/run counts, then exit without launching either interface.
+
+### Web
+
+Drop one JSON file anywhere on the ready application, or use **Extras → Overview
+→ Load question set**. The native file picker and confirmation are keyboard
+operable. Valid files always open a confirmation naming the incoming set and
+explaining that every learning answer and practice run will be deleted. Cancel
+leaves the store unchanged; confirmation commits, returns to Learn, and announces
+success. Multiple-file, non-file, invalid, and pre-ready drops show errors instead
+of navigating away. Validation issues are exposed in an alert region.
+
+### Replacement and naming
+
+Loading atomically replaces the set and deletes all learning answers, unfinished
+and completed practice runs, timing records, and run ownership. Live ownership
+does not block an explicit load. There is no merge, append, deduplication, or
+automatic demo restoration. A failed transaction leaves the old set and progress
+intact. Each interface loads only into its own store; CLI loading does not change
+the browser, and browser loading does not change the CLI.
+
+Names come from the file's base name: remove `.json` case-insensitively, split
+separators and camelCase/acronym boundaries, capitalize each word's first character,
+and preserve its remaining characters. For example, `networkBasics.json` becomes
+**Network Basics**, and `awsIAMRoles.json` becomes **Aws IAM Roles**. An empty name
+becomes **Untitled Set**. Overview shows the name, file source, load time, and counts.
 
 ## Checks and tooling
 

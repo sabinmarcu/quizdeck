@@ -33,11 +33,19 @@ const question = {
 };
 
 describe('question set trust boundary', () => {
-  it('rejects duplicate source IDs rather than merging questions', () => {
-    expect(() => questionsSchema.parse([question, {
+  it('locates duplicate source IDs on the later question rather than merging them', () => {
+    const result = questionsSchema.safeParse([question, {
       ...question,
       description: 'Different text',
-    }])).toThrow('unique');
+    }]);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toContainEqual(expect.objectContaining({
+        path: [1, 'id'],
+        message: 'Question IDs must be unique',
+      }));
+    }
   });
 
   it('rejects a source without exactly one correct choice', () => {

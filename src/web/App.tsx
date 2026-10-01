@@ -17,6 +17,7 @@ import {
 import {
   leavePracticeAtom,
   pausePracticeAtom,
+  practiceNoticeAtom,
 } from '../state/practice';
 import {
   navigationAction,
@@ -44,6 +45,7 @@ import {
 } from './App.css';
 import { Panel } from './App.Panel';
 import { Learning } from './Learning';
+import { LoadQuestionSet } from './LoadQuestionSet';
 import { Practice } from './Practice';
 
 function isEditingTarget(target: EventTarget | null) {
@@ -63,16 +65,20 @@ export function App({ onReload }: App.Props) {
   const setInfo = useAtomValue(setInfoAtom);
   const pending = useAtomValue(pendingAtom);
   const saveError = useAtomValue(actionErrorAtom);
+  const practiceNotice = useAtomValue(practiceNoticeAtom);
   const leavePractice = useSetAtom(leavePracticeAtom);
   const pausePractice = useSetAtom(pausePracticeAtom);
   const [section, setSection] = useState<ShellSection>('Learn');
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState(0);
   const [acknowledgedLocation, setAcknowledgedLocation] = useState<string | null>(null);
+  const [loadBusy, setLoadBusy] = useState(false);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+  const fileInputReference = useRef<HTMLInputElement>(null);
   const firstGAt = useRef<number | null>(null);
-  const interactive = startup.status === 'ready'
+  const storageInteractive = startup.status === 'ready'
     && (startup.retention === 'persistent' || acknowledgedLocation === startup.location);
+  const interactive = storageInteractive && !loadBusy;
 
   const selectSection = useCallback(async (index: number) => {
     const extrasIndex = mainMenuItems.indexOf('Extras');
@@ -186,116 +192,154 @@ export function App({ onReload }: App.Props) {
     return () => { document.removeEventListener('keydown', handleKey); };
   }, [handleKey]);
 
-  if (startup.status === 'loading') {
-    return (
-      <main className={shell} aria-busy="true">
-        <h1>Quizdeck</h1>
-        <output className={status}>Opening your local progress storage…</output>
-      </main>
-    );
-  }
-  if (startup.status === 'error') {
-    return (
-      <main className={shell}>
-        <h1>Quizdeck</h1>
-        <section className={error} role="alert" aria-labelledby="storage-error">
-          <h2 id="storage-error">Local progress storage could not be opened</h2>
-          <p className={hash}>{startup.message}</p>
-          <button className={action} type="button" onClick={onReload}>Reload storage</button>
-        </section>
-      </main>
-    );
-  }
-  if (!setInfo) {
-    throw new Error('Ready storage must include validated question-set information.');
-  }
-  if (!interactive) {
-    return (
-      <main className={shell}>
-        <h1>Quizdeck</h1>
-        <section className={notice} role="alert" aria-labelledby="retention-title">
-          <h2 id="retention-title">Progress may be cleared by this browser</h2>
-          <p>
-            Persistent retention was not granted or is unavailable. IndexedDB still saves your
-            progress, but the browser can evict best-effort storage when space is needed.
-          </p>
-          <p className={hash}>{startup.location}</p>
-          <button
-            className={action}
-            type="button"
-            onClick={() => { setAcknowledgedLocation(startup.location); }}
-          >
-            I understand
-          </button>
-        </section>
-      </main>
-    );
-  }
   return (
-    <main className={shell}>
-      <header className={header}>
-        <h1 className={title}>Quizdeck</h1>
-        <p className={subtitle}>Study a question set with saved local progress.</p>
-      </header>
-      <nav aria-label="Application navigation" data-app-navigation>
-        <div className={tabList}>
-          {mainMenuItems.map((item, index) => {
-            const isExtras = item === 'Extras';
-            return (
-              <button
-                ref={(element) => { buttons.current[index] = element; }}
-                aria-controls={isExtras ? 'extras-menu' : undefined}
-                aria-expanded={isExtras ? extrasOpen : undefined}
-                aria-pressed={isExtras ? extrasOpen : section === item}
-                className={tab}
-                key={item}
-                type="button"
-                onFocus={() => { setFocusedSection(index); }}
-                onClick={async () => { await selectSection(index); }}
-              >
-                {item}
-              </button>
-            );
-          })}
-        </div>
-        {extrasOpen && (
-          <nav id="extras-menu" aria-label="Extras" className={extrasMenu}>
-            {extrasMenuItems.map((item, index) => {
-              const buttonIndex = mainMenuItems.length + index;
-              return (
+    <LoadQuestionSet
+      ready={startup.status === 'ready'}
+      unavailableMessage={startup.status === 'error'
+        ? 'Question sets cannot be loaded while local storage is unavailable.'
+        : 'Question sets can be loaded after local storage is ready.'}
+      onBusyChange={setLoadBusy}
+      inputRef={fileInputReference}
+      onLoaded={() => {
+        setExtrasOpen(false);
+        setFocusedSection(mainMenuItems.indexOf('Learn'));
+        setSection('Learn');
+        requestAnimationFrame(() => { buttons.current[mainMenuItems.indexOf('Learn')]?.focus(); });
+      }}
+    >
+      {({ busy }) => {
+        if (startup.status === 'loading') {
+          return (
+            <main className={shell} aria-busy="true">
+              <h1>Quizdeck</h1>
+              <output className={status}>Opening your local progress storage…</output>
+            </main>
+          );
+        }
+        if (startup.status === 'error') {
+          return (
+            <main className={shell}>
+              <h1>Quizdeck</h1>
+              <section className={error} role="alert" aria-labelledby="storage-error">
+                <h2 id="storage-error">Local progress storage could not be opened</h2>
+                <p className={hash}>{startup.message}</p>
+                <button className={action} type="button" onClick={onReload}>Reload storage</button>
+              </section>
+            </main>
+          );
+        }
+        if (!setInfo) {
+          throw new Error('Ready storage must include validated question-set information.');
+        }
+        if (!storageInteractive) {
+          return (
+            <main className={shell}>
+              <h1>Quizdeck</h1>
+              <section className={notice} role="alert" aria-labelledby="retention-title">
+                <h2 id="retention-title">Progress may be cleared by this browser</h2>
+                <p>
+                  Persistent retention was not granted or is unavailable. IndexedDB still saves your
+                  progress, but the browser can evict best-effort storage when space is needed.
+                </p>
+                <p className={hash}>{startup.location}</p>
                 <button
-                  ref={(element) => { buttons.current[buttonIndex] = element; }}
-                  aria-pressed={section === item}
-                  className={tab}
-                  key={item}
+                  className={action}
                   type="button"
-                  onFocus={() => { setFocusedSection(buttonIndex); }}
-                  onClick={async () => { await selectSection(buttonIndex); }}
+                  onClick={() => { setAcknowledgedLocation(startup.location); }}
                 >
-                  {item}
+                  I understand
                 </button>
-              );
-            })}
-          </nav>
-        )}
-      </nav>
-      {pending && <output className={status}>Saving progress…</output>}
-      {saveError && section !== 'Practice' && <p className={error} role="alert">{saveError}</p>}
-      {section === 'Learn' && (
-        <Learning
-          keyboardEnabled={!extrasOpen}
-          onExit={async () => { await selectSection(mainMenuItems.indexOf('Learn')); }}
-        />
-      )}
-      {section === 'Practice' && (
-        <Practice
-          keyboardEnabled={!extrasOpen}
-          onExit={async () => { await selectSection(mainMenuItems.indexOf('Learn')); }}
-        />
-      )}
-      {section !== 'Learn' && section !== 'Practice' && (
-        <Panel section={section} startup={startup} setInfo={setInfo} />
-      )}
-    </main>
+              </section>
+            </main>
+          );
+        }
+        return (
+          <main className={shell}>
+            <header className={header}>
+              <h1 className={title}>Quizdeck</h1>
+              <p className={subtitle}>Study a question set with saved local progress.</p>
+            </header>
+            <nav aria-label="Application navigation" data-app-navigation>
+              <div className={tabList}>
+                {mainMenuItems.map((item, index) => {
+                  const isExtras = item === 'Extras';
+                  return (
+                    <button
+                      ref={(element) => { buttons.current[index] = element; }}
+                      aria-controls={isExtras ? 'extras-menu' : undefined}
+                      aria-expanded={isExtras ? extrasOpen : undefined}
+                      aria-pressed={isExtras ? extrasOpen : section === item}
+                      className={tab}
+                      disabled={busy}
+                      key={item}
+                      type="button"
+                      onFocus={() => { setFocusedSection(index); }}
+                      onClick={async () => { await selectSection(index); }}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+              {extrasOpen && (
+                <nav id="extras-menu" aria-label="Extras" className={extrasMenu}>
+                  {extrasMenuItems.map((item, index) => {
+                    const buttonIndex = mainMenuItems.length + index;
+                    return (
+                      <button
+                        ref={(element) => { buttons.current[buttonIndex] = element; }}
+                        aria-pressed={section === item}
+                        className={tab}
+                        disabled={busy}
+                        key={item}
+                        type="button"
+                        onFocus={() => { setFocusedSection(buttonIndex); }}
+                        onClick={async () => { await selectSection(buttonIndex); }}
+                      >
+                        {item}
+                      </button>
+                    );
+                  })}
+                </nav>
+              )}
+            </nav>
+            {pending && <output className={status}>Saving progress…</output>}
+            {practiceNotice && <output className={notice}>{practiceNotice}</output>}
+            {saveError && section !== 'Practice' && <p className={error} role="alert">{saveError}</p>}
+            {section === 'Learn' && (
+              <Learning
+                key={`${startup.set.contentHash}:${startup.set.loadedAt}`}
+                keyboardEnabled={!extrasOpen && !busy}
+                onExit={async () => { await selectSection(mainMenuItems.indexOf('Learn')); }}
+              />
+            )}
+            {section === 'Practice' && (
+              <Practice
+                key={`${startup.set.contentHash}:${startup.set.loadedAt}`}
+                keyboardEnabled={!extrasOpen && !busy}
+                onExit={async () => { await selectSection(mainMenuItems.indexOf('Learn')); }}
+              />
+            )}
+            {section !== 'Learn' && section !== 'Practice' && (
+              <Panel
+                section={section}
+                startup={startup}
+                setInfo={setInfo}
+                loadQuestionSetControl={(
+                  <button
+                    className={action}
+                    disabled={busy}
+                    type="button"
+                    onClick={() => { fileInputReference.current?.click(); }}
+                  >
+                    Load question set
+                  </button>
+                )}
+              />
+            )}
+          </main>
+        );
+      }}
+    </LoadQuestionSet>
   );
 }

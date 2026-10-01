@@ -1,3 +1,4 @@
+import { setDisplayName } from './question-set-file';
 import {
   createQuestionSet,
   type Question,
@@ -62,7 +63,7 @@ export const demoQuestions: readonly Question[] = [
 
 export function createDemoSet(loadedAt: number): Promise<QuestionSet> {
   return createQuestionSet(demoQuestions, {
-    name: 'Demo Set',
+    name: setDisplayName('demoSet'),
     source: 'demo',
     loadedAt,
   });

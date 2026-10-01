@@ -16,10 +16,19 @@ export const questionSchema = z.strictObject({
   ).readonly(),
 }).readonly();
 
-export const questionsSchema = z.array(questionSchema).min(1).refine(
-  (questions) => new Set(questions.map((question) => question.id)).size === questions.length,
-  'Question IDs must be unique',
-).readonly();
+export const questionsSchema = z.array(questionSchema).min(1).superRefine((questions, context) => {
+  const ids = new Set<number>();
+  for (const [index, question] of questions.entries()) {
+    if (ids.has(question.id)) {
+      context.addIssue({
+        code: 'custom',
+        path: [index, 'id'],
+        message: 'Question IDs must be unique',
+      });
+    }
+    ids.add(question.id);
+  }
+}).readonly();
 
 export const questionSetSchema = z.strictObject({
   name: textSchema,
@@ -33,7 +42,7 @@ export const questionSetSchema = z.strictObject({
 export type Question = z.infer<typeof questionSchema>;
 export type QuestionSet = Readonly<z.infer<typeof questionSetSchema>>;
 
-async function contentHash(questions: readonly Question[]): Promise<string> {
+export async function questionContentHash(questions: readonly Question[]): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(questions));
   const hash = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -59,7 +68,7 @@ export async function createQuestionSet(
   }).parse(metadata);
   return Object.freeze(questionSetSchema.parse({
     ...parsedMetadata,
-    contentHash: await contentHash(questions),
+    contentHash: await questionContentHash(questions),
     questionCount: questions.length,
     questions,
   }));
@@ -70,7 +79,7 @@ export async function validateQuestionSet(input: unknown): Promise<QuestionSet> 
   if (set.questionCount !== set.questions.length) {
     throw new Error('Question set count does not match its questions');
   }
-  if (set.contentHash !== await contentHash(set.questions)) {
+  if (set.contentHash !== await questionContentHash(set.questions)) {
     throw new Error('Question set content does not match its hash');
   }
   return Object.freeze(set);

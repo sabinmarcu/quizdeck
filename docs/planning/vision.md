@@ -3,8 +3,8 @@
 **Status: working product vision with linked implementation phases.** This is the
 behavioral source of truth for both interfaces. Remaining proposed defaults are
 identified in section 2; the phase plans carry those defaults explicitly rather
-than silently treating them as approved. Phase 1 is implemented; question-set
-loading and distribution remain planned in Phases 2 and 3.
+than silently treating them as approved. Phases 1 and 2 are implemented;
+distribution remains planned in Phase 3.
 
 ## 1. Scope and confirmed requirements
 

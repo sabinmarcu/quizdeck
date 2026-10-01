@@ -1,6 +1,6 @@
 # Phase 2 — Loading question sets
 
-**Status:** planned. **Dependencies:** [Phase 1](01-identity-and-question-set.md).
+**Status:** implemented. **Dependencies:** [Phase 1](01-identity-and-question-set.md).
 
 [Vision](vision.md) · Previous: [Phase 1 — Quizdeck identity and owned question set](01-identity-and-question-set.md) · Next: [Phase 3 — Distribution and documentation](03-distribution-and-documentation.md)
 
@@ -136,6 +136,17 @@ host gains no upload endpoint.
   set and confirm three-question runs.
 - Confirm a CLI load does not alter the browser store and vice versa.
 - Run `yarn test`, `yarn typecheck`, `yarn lint`, and `yarn build`.
+
+Verified with the pinned toolchain on Linux: 109 tests, typecheck, lint fixes, and
+both production builds pass. Real CLI runs covered confirmation/default cancellation,
+`--yes`, non-TTY rejection, located validation errors, working-directory resolution,
+fifth-choice input, and replacement of a live Ink practice run. Chromium covered
+drag overlays, cancellation, rejected drops, pre-ready drops, keyboard-only native
+file picking and confirmation, fifth-choice input, cross-tab run termination,
+write-failure rollback, restored focus, and current status feedback. Loaded
+175-question sets produce 60-question runs; three-question sets produce three-question
+runs. CLI and browser store independence was exercised in both directions.
+Native Windows and Safari/iOS Safari verification is waived.
 
 ## Exit criteria
 

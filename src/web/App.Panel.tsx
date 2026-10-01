@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type {
   SetInfo,
   Startup,
@@ -13,6 +14,7 @@ import { defaultProgressDatabaseName } from './IndexedDbProgressStorage';
 
 export namespace Panel {
   export interface Props {
+    loadQuestionSetControl: ReactNode;
     section: ExtrasSection;
     startup: Extract<Startup, { status: 'ready' }>;
     setInfo: SetInfo;
@@ -20,7 +22,7 @@ export namespace Panel {
 }
 
 export function Panel({
-  section, startup, setInfo,
+  loadQuestionSetControl, section, startup, setInfo,
 }: Panel.Props) {
   if (section === 'Storage') {
     return (
@@ -66,6 +68,7 @@ export function Panel({
         <Detail term="Saved practice runs" value={String(startup.snapshot.runs.length)} />
       </dl>
       <p>This screen reports your current question set and saved records.</p>
+      <div>{loadQuestionSetControl}</div>
     </section>
   );
 }

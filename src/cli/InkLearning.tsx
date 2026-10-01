@@ -26,22 +26,24 @@ import {
   learningAdjacentAtom,
   learningCountsAtom,
   learningDetailAtom,
-  learningFilterAtom,
-  learningFilters,
-  learningFocusedIdAtom,
-  learningQuestionIdAtom,
-  learningQueryAtom,
-  learningResetOpenAtom,
   learningRowsAtom,
   learningStatusLabels,
   openLearningQuestionAtom,
   resetLearningAtom,
 } from '../state/learning';
 import type {
-  LearningFilter,
   LearningRow,
   LearningStatus,
 } from '../state/learning';
+import {
+  learningFilterAtom,
+  learningFilters,
+  learningFocusedIdAtom,
+  learningQuestionIdAtom,
+  learningQueryAtom,
+  learningResetOpenAtom,
+} from '../state/learning-state';
+import type { LearningFilter } from '../state/learning-state';
 import { InkQuestion } from './InkQuestion';
 import {
   questionAction,

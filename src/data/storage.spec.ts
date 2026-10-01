@@ -17,9 +17,13 @@ import {
 } from './storage';
 
 let set: QuestionSet;
+let replacementSet: QuestionSet;
 
 beforeAll(async () => {
-  set = await createFixtureSet(3);
+  [set, replacementSet] = await Promise.all([
+    createFixtureSet(3),
+    createFixtureSet(2),
+  ]);
 });
 
 function activeSnapshot(): Snapshot {
@@ -110,6 +114,92 @@ describe('transaction revision and ownership', () => {
     expect(after.owners).toEqual(before.owners);
     expect(after.revision).toBe(6);
     expect(before.learning[0]!.questionId).toBe(1);
+  });
+
+  it('replaces the set and clears all progress despite live practice ownership', () => {
+    const before = activeSnapshot();
+    const after = applyTransaction(before, {
+      expectedRevision: before.revision,
+      changes: [{
+        kind: 'replaceSet',
+        set: replacementSet,
+      }],
+    });
+
+    expect(after).toMatchObject({
+      revision: 6,
+      currentSet: replacementSet,
+      learning: [],
+      runs: [],
+      owners: [],
+    });
+    expect(before).toMatchObject({
+      revision: 5,
+      currentSet: set,
+      learning: [{ questionId: 1 }],
+      runs: [{ id: 'run-1' }],
+      owners: [{ runId: 'run-1' }],
+    });
+  });
+
+  it('resets progress when a file with the current content is loaded again', () => {
+    const before = activeSnapshot();
+    const after = applyTransaction(before, {
+      expectedRevision: before.revision,
+      changes: [{
+        kind: 'replaceSet',
+        set,
+      }],
+    });
+
+    expect(after).toMatchObject({
+      revision: 6,
+      currentSet: set,
+      learning: [],
+      runs: [],
+      owners: [],
+    });
+  });
+
+  it('preserves the previous set and progress when replacement validation fails', () => {
+    const before = activeSnapshot();
+    const original = structuredClone(before);
+
+    expect(() => applyTransaction(before, {
+      expectedRevision: before.revision,
+      changes: [{
+        kind: 'replaceSet',
+        set: {
+          ...replacementSet,
+          source: 'demo',
+        },
+      }],
+    })).toThrow('Replacement question sets must come from a file');
+    expect(before).toEqual(original);
+  });
+
+  it('rejects combinations that could repopulate replacement-cleared records', () => {
+    const before = activeSnapshot();
+    const original = structuredClone(before);
+
+    expect(() => applyTransaction(before, {
+      expectedRevision: before.revision,
+      changes: [
+        {
+          kind: 'replaceSet',
+          set: replacementSet,
+        },
+        {
+          kind: 'putLearning',
+          answer: {
+            questionId: 1,
+            answerIndex: 1,
+            outcome: 'incorrectly_answered',
+          },
+        },
+      ],
+    })).toThrow('cannot be combined');
+    expect(before).toEqual(original);
   });
 
   it('rejects an active owner takeover and allows takeover after expiry', () => {

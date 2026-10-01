@@ -23,6 +23,7 @@ import {
 import type { AppSession } from './application';
 import {
   practiceErrorAtom,
+  practiceNoticeAtom,
   practiceHistoryAtom,
   practiceOwnedAtom,
   practiceReportAtom,
@@ -326,5 +327,33 @@ describe('native persisted practice sessions', () => {
     expect(indicators).toEqual([]);
     expect(current.store.get(actionErrorAtom)).toBe('Earlier action error remains visible');
     expect(snapshot(current).runs[0]!.elapsedMs).toBe(1000);
+  });
+
+  it('terminates a run replaced by another session before the next heartbeat and never recreates it', async () => {
+    const current = await session();
+    await current.practice.start();
+    await answer(current);
+    const outside = await SqliteProgressStorage.open({ path: filename });
+    const loaded = await outside.load();
+    const replacement = await outside.commit({
+      expectedRevision: loaded.revision,
+      changes: [{
+        kind: 'replaceSet',
+        set: await createFixtureSet(3),
+      }],
+    });
+    monotonic += 5000;
+    expect(await current.practice.checkpoint()).toBe(true);
+    expect(current.store.get(startupAtom).status).toBe('ready');
+    expect(current.store.get(practiceSelectedIdAtom)).toBeNull();
+    expect(current.store.get(practiceOwnedAtom)).toBe(false);
+    expect(current.store.get(practiceViewAtom)).toBeNull();
+    expect(current.store.get(practiceNoticeAtom)).toContain('replaced');
+    expect(current.store.get(practiceErrorAtom)).toBeNull();
+    expect(current.store.get(actionErrorAtom)).toBeNull();
+    monotonic += 1000;
+    expect(await current.practice.checkpoint()).toBe(true);
+    expect(await outside.load()).toEqual(replacement);
+    outside.close();
   });
 });

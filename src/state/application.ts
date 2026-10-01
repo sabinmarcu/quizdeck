@@ -5,13 +5,19 @@ import {
 import type { Store } from 'jotai/vanilla';
 import { createDemoSet } from '../data/demo';
 import type { QuestionSet } from '../data/question-set';
+import type { parseQuestionSet } from '../data/question-set-file';
 import type { Snapshot } from '../data/records';
 import { StorageConflictError } from '../data/storage';
 import type {
   ProgressStorage,
   StorageChange,
 } from '../data/storage';
-import { createPracticeController } from './practice-session';
+import { resetLearningStateAtom } from './learning-state';
+import {
+  createPracticeController,
+  preparePracticeReplacementAtom,
+  reconcilePracticeAtom,
+} from './practice-session';
 import type { PracticeController } from './practice-session';
 
 export type Startup =
@@ -69,6 +75,29 @@ function requireCurrentSet(snapshot: Snapshot): QuestionSet {
   }
   return snapshot.currentSet;
 }
+
+function setIdentityChanged(previous: QuestionSet, next: QuestionSet) {
+  return previous.contentHash !== next.contentHash || previous.loadedAt !== next.loadedAt;
+}
+
+const publishProgressAtom = atom(null, (get, set, snapshot: Snapshot) => {
+  const current = get(startupAtom);
+  if (current.status !== 'ready' || snapshot.revision < current.snapshot.revision) {
+    return false;
+  }
+  const currentSet = requireCurrentSet(snapshot);
+  const replaced = setIdentityChanged(current.set, currentSet);
+  set(startupAtom, {
+    ...current,
+    set: currentSet,
+    snapshot,
+  });
+  if (replaced) {
+    set(resetLearningStateAtom);
+  }
+  return set(reconcilePracticeAtom, snapshot) || replaced;
+});
+
 export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) => {
   const storage = get(storageAtom);
   const startup = get(startupAtom);
@@ -79,18 +108,14 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
   set(writeBusyAtom, true);
   set(actionErrorAtom, null);
   try {
+    if (changes.some((change) => change.kind === 'replaceSet')) {
+      await set(preparePracticeReplacementAtom);
+    }
     const snapshot = await storage.commit({
       expectedRevision: startup.snapshot.revision,
       changes,
     });
-    const latest = get(startupAtom);
-    if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
-      set(startupAtom, {
-        ...latest,
-        set: requireCurrentSet(snapshot),
-        snapshot,
-      });
-    }
+    set(publishProgressAtom, snapshot);
     return snapshot;
   } catch (error) {
     set(actionErrorAtom, error instanceof Error ? error.message : 'Progress could not be saved');
@@ -101,6 +126,27 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
   }
 });
 
+export const loadQuestionSetAtom = atom(null, async (get, set, input: parseQuestionSet.Result) => {
+  try {
+    const startup = get(startupAtom);
+    if (startup.status !== 'ready') {
+      throw new Error('Progress storage is not ready to load a question set.');
+    }
+    await set(commitAtom, [{
+      kind: 'replaceSet',
+      set: {
+        ...input,
+        source: 'file',
+        loadedAt: Math.max(Date.now(), startup.set.loadedAt + 1),
+      },
+    }]);
+    return true;
+  } catch (error) {
+    set(actionErrorAtom, error instanceof Error ? error.message : 'The question set could not be loaded.');
+    return false;
+  }
+});
+
 export const refreshProgressAtom = atom(null, async (get, set) => {
   const storage = get(storageAtom);
   const current = get(startupAtom);
@@ -108,14 +154,7 @@ export const refreshProgressAtom = atom(null, async (get, set) => {
     throw new Error('Progress storage is not ready.');
   }
   const snapshot = await storage.load();
-  const latest = get(startupAtom);
-  if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
-    set(startupAtom, {
-      ...latest,
-      snapshot,
-      set: requireCurrentSet(snapshot),
-    });
-  }
+  set(publishProgressAtom, snapshot);
   return snapshot;
 });
 
@@ -140,21 +179,25 @@ export const mutateProgressAtom = atom(null, async (
   }
   try {
     const loaded = await storage.load();
-    const changes = build(loaded);
-    const snapshot = await storage.commit({
-      expectedRevision: loaded.revision,
-      changes,
-    });
-    const latest = get(startupAtom);
-    if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
-      set(startupAtom, {
-        ...latest,
-        snapshot,
-        set: requireCurrentSet(snapshot),
-      });
+    if (set(publishProgressAtom, loaded)) {
+      return loaded;
     }
+    const changes = build(loaded);
+    const snapshot = changes.length === 0
+      ? loaded
+      : await storage.commit({
+        expectedRevision: loaded.revision,
+        changes,
+      });
+    set(publishProgressAtom, snapshot);
     return snapshot;
   } catch (error) {
+    if (error instanceof StorageConflictError) {
+      const latest = await storage.load();
+      if (set(publishProgressAtom, latest)) {
+        return latest;
+      }
+    }
     set(actionErrorAtom, error instanceof Error ? error.message : 'Progress could not be saved.');
     throw error;
   } finally {
@@ -209,14 +252,8 @@ export function createAppSession(
     }
     try {
       const snapshot = await storage.load();
-      const latest = store.get(startupAtom);
-      if (!closed && version === refreshVersion && latest.status === 'ready'
-        && snapshot.revision >= latest.snapshot.revision) {
-        store.set(startupAtom, {
-          ...latest,
-          set: requireCurrentSet(snapshot),
-          snapshot,
-        });
+      if (!closed && version === refreshVersion) {
+        store.set(publishProgressAtom, snapshot);
       }
     } catch (error) {
       if (!closed && version === refreshVersion) {

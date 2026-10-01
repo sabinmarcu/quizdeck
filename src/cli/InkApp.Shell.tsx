@@ -33,6 +33,9 @@ import type {
   ExtrasSection,
   ShellSection,
 } from '../state/navigation';
+import {
+  practiceNoticeAtom,
+} from '../state/practice';
 import { InkLearning } from './InkLearning';
 import { InkPractice } from './InkPractice';
 
@@ -87,6 +90,7 @@ function sectionText({
     `Answers without source explanations: ${setInfo.missingExplanationCount}`,
     `Saved learning answers: ${startup.snapshot.learning.length}`,
     `Saved practice runs: ${startup.snapshot.runs.length}`,
+    'Replace this set with: quizdeck load <path>',
   ].join('\n');
 }
 
@@ -97,6 +101,7 @@ export namespace InkShell {
 export function InkShell({ session, onQuit }: InkShell.Props) {
   const startup = useAtomValue(startupAtom);
   const setInfo = useAtomValue(setInfoAtom);
+  const practiceNotice = useAtomValue(practiceNoticeAtom);
   const saveError = useAtomValue(actionErrorAtom);
   const pending = useAtomValue(pendingAtom);
   const { stdout } = useStdout();
@@ -124,6 +129,9 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
   ).split('\n'), [active, startup, setInfo, size.columns]);
   const visibleOffset = Math.min(offset, Math.max(0, lines.length - pageSize));
   const menuItems = extrasOpen ? extrasMenuItems : mainMenuItems;
+  const setIdentity = startup.status === 'ready'
+    ? `${startup.set.contentHash}:${startup.set.loadedAt}`
+    : 'not-ready';
 
   useEffect(() => {
     const resize = () => {
@@ -258,8 +266,9 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
           ))}
         </Box>
       )}
-      {active === 'Learn' && <InkLearning onExit={exitLearning} onQuit={onQuit} />}
-      {active === 'Practice' && <InkPractice onExit={exitPractice} onQuit={onQuit} />}
+      {practiceNotice && <Text color="yellow">{practiceNotice}</Text>}
+      {active === 'Learn' && <InkLearning key={setIdentity} onExit={exitLearning} onQuit={onQuit} />}
+      {active === 'Practice' && <InkPractice key={setIdentity} onExit={exitPractice} onQuit={onQuit} />}
       {active !== 'Learn' && active !== 'Practice' && (
         <>
           <Box marginTop={1}><Text>{lines.slice(visibleOffset, visibleOffset + pageSize).join('\n')}</Text></Box>

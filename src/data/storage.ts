@@ -21,6 +21,16 @@ export const transactionSchema = z.strictObject({
       set: questionSetSchema,
     }),
     z.strictObject({
+      kind: z.literal('replaceSet'),
+      set: questionSetSchema.refine(
+        (set) => set.source === 'file',
+        {
+          path: ['source'],
+          message: 'Replacement question sets must come from a file',
+        },
+      ),
+    }),
+    z.strictObject({
       kind: z.literal('putLearning'),
       answer: learningSchema,
     }),
@@ -41,6 +51,14 @@ export const transactionSchema = z.strictObject({
       ownerId: z.string().min(1),
     }),
   ])).min(1),
+}).superRefine((transaction, context) => {
+  if (transaction.changes.length > 1 && transaction.changes.some((change) => change.kind === 'replaceSet')) {
+    context.addIssue({
+      code: 'custom',
+      path: ['changes'],
+      message: 'Replacing a question set cannot be combined with other changes',
+    });
+  }
 });
 export type Transaction = z.infer<typeof transactionSchema>;
 export type StorageChange = Transaction['changes'][number];
@@ -77,6 +95,13 @@ export function applyTransaction(current: Snapshot, input: Transaction): Snapsho
           throw new StorageConflictError('A question set has already been seeded.');
         }
         currentSet = change.set;
+        break;
+      }
+      case 'replaceSet': {
+        currentSet = change.set;
+        learning.clear();
+        runs.clear();
+        owners.clear();
         break;
       }
       case 'putLearning': {

@@ -15,6 +15,7 @@ export {
   practiceBusyAtom,
   practiceElapsedAtom,
   practiceErrorAtom,
+  practiceNoticeAtom,
   startPracticeAtom,
   openPracticeAtom,
   answerPracticeAtom,

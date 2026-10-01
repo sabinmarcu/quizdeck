@@ -194,7 +194,7 @@ class IndexedProgressStorage implements ProgressStorage {
     const transaction: Transaction = {
       ...parsed,
       changes: await Promise.all(parsed.changes.map(async (change) => {
-        if (change.kind !== 'seedSet') {
+        if (change.kind !== 'seedSet' && change.kind !== 'replaceSet') {
           return change;
         }
         return {

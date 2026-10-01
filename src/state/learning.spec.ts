@@ -30,15 +30,17 @@ import {
   learningAdjacentAtom,
   learningCountsAtom,
   learningDetailAtom,
+  learningRowsAtom,
+  openLearningQuestionAtom,
+  resetLearningAtom,
+} from './learning';
+import {
   learningFilterAtom,
   learningFocusedIdAtom,
   learningQueryAtom,
   learningQuestionIdAtom,
   learningResetOpenAtom,
-  learningRowsAtom,
-  openLearningQuestionAtom,
-  resetLearningAtom,
-} from './learning';
+} from './learning-state';
 
 let directory: string;
 let filename: string;
