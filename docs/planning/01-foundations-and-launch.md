@@ -1,6 +1,6 @@
 # Phase 1 — Foundations and launch
 
-**Status:** planned, not implemented. **Dependencies:** none.
+**Status:** implemented. **Dependencies:** none.
 
 [Vision](vision.md) · Next: [Phase 2 — Learning](02-learning-mode.md)
 
@@ -140,3 +140,37 @@ storage errors. Default Clipanion invocation opens Ink, `web` opens a real local
 web host, and neither launches the wrong renderer. Built assets resolve outside
 the checkout working directory. Theme-backed web startup is observed, shared
 state is platform-neutral, and no unrelated feature behavior is advertised.
+
+## Implementation and verification evidence
+
+- Shared Zod bank/record validation, SHA-256 bank versions, revision-checked
+  transactions, ownership primitives, and Jotai hydration/commit projections are
+  implemented under `src/data` and `src/state`.
+- `src/cli` implements native SQLite, platform data paths, Clipanion default Ink
+  and `web` commands, and a fixed-origin built-asset host. `src/web` implements
+  native IndexedDB, retention disclosure, post-commit notifications, and the
+  theme-backed Overview/Storage/Help shell. Learning/practice UI remains excluded.
+- Source and built Ink were exercised in real pseudo-terminals, including a
+  narrow terminal, keyboard focus/help/storage navigation, and clean `q` exit.
+- Source and built web commands served the actual browser application at the
+  fixed origin. The built host ran from outside the repository working directory;
+  missing builds, occupied ports, traversal/source requests, symlink escapes,
+  interruption, and same-origin relaunch were exercised.
+  Symlinked CLI entrypoints were also exercised; expected missing-build/port
+  conflicts render as Clipanion usage errors without internal stack traces.
+- Native browser IndexedDB checks covered committed records, stale revisions,
+  an aborted multi-record transaction after a native key conflict, reopening,
+  invalid metadata preservation, future native-version rejection, and cross-tab
+  Jotai refresh. Corrupt/unavailable storage showed actual shell errors, and
+  restored storage recovered through Reload without resetting records.
+- Browser smoke covered best-effort retention acknowledgment, Vim-like/native
+  navigation, text-input shortcut isolation, half-page scrolling, light/dark
+  theme values, and a 390-pixel layout without horizontal overflow.
+- 33 colocated Vitest tests passed, including real SQLite rollback/reopen/conflict
+  checks and Windows path resolution. Typechecking, ESLint fixing checks, both
+  builds, and immutable Yarn installation passed. AI managed status is current.
+- Runtime proof was collected on Linux and Chromium. Windows storage paths were
+  exercised through injected platform inputs; no Windows host or Safari runtime
+  claim is made. Cross-platform/browser runtime verification remains Phase 4.
+- Known non-failing tooling warnings remain: the shared ESLint/Unicorn peer-version
+  conflict and Vite's large initial chunk containing bundled questions/dependencies.

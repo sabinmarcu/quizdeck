@@ -1,18 +1,27 @@
+import { Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { main } from './main.css';
+import { createAppSession } from '../state/application';
+import './main.css';
+import { App } from './App';
+import { openIndexedStorage } from './IndexedDbProgressStorage';
 
 const rootElement = document.querySelector('#root');
-
 if (!rootElement) {
   throw new Error('Unable to find the application root.');
 }
-
+const session = createAppSession(openIndexedStorage);
+session.start();
+window.addEventListener('pagehide', () => { session.close(); });
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    document.location.reload();
+  }
+});
 createRoot(rootElement).render(
   <StrictMode>
-    <main className={main}>
-      <h1>Claude certification</h1>
-      <p>React web renderer ready.</p>
-    </main>
+    <Provider store={session.store}>
+      <App onReload={() => { session.start(); }} />
+    </Provider>
   </StrictMode>,
 );

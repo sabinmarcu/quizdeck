@@ -2203,6 +2203,7 @@ __metadata:
     "@vanilla-extract/dynamic": "npm:^2.1.5"
     "@vanilla-extract/vite-plugin": "npm:^5.2.6"
     "@vitejs/plugin-react": "npm:^6.1.1"
+    clipanion: "npm:^4.0.0-rc.4"
     esbuild: "npm:^0.28.2"
     eslint: "npm:^9.39.5"
     eslint-plugin-jsx-a11y: "npm:^6.10.2"
@@ -2210,6 +2211,7 @@ __metadata:
     eslint-plugin-react-hooks: "npm:^7.1.1"
     husky: "npm:^9.1.7"
     ink: "npm:^7.1.1"
+    jotai: "npm:^3.0.1"
     lint-staged: "npm:^17.6.0"
     pdfjs-dist: "npm:^6.3.289"
     react: "npm:^19.3.0"
@@ -2219,6 +2221,8 @@ __metadata:
     typescript-eslint: "npm:^8.71.0"
     vite: "npm:^8.3.1"
     vitest: "npm:^5.0.2"
+    wrap-ansi: "npm:^10.0.2"
+    zod: "npm:^4.6.5"
   languageName: unknown
   linkType: soft
 
@@ -2245,6 +2249,17 @@ __metadata:
     slice-ansi: "npm:^9.0.0"
     string-width: "npm:^8.2.0"
   checksum: 10c0/56760fd0987d1c93711ce603510cce12a97f91d7b4a4f892402a586522aa14633caca86fe410defcfac256f56ea88de757d82d5c874a20eb5861b24d5eebcffb
+  languageName: node
+  linkType: hard
+
+"clipanion@npm:^4.0.0-rc.4":
+  version: 4.0.0-rc.4
+  resolution: "clipanion@npm:4.0.0-rc.4"
+  dependencies:
+    typanion: "npm:^3.8.0"
+  peerDependencies:
+    typanion: "*"
+  checksum: 10c0/047b415b59a5e9777d00690fba563ccc850eca6bf27790a88d1deea3ecc8a89840ae9aed554ff284cc698a9f3f20256e43c25ff4a7c4c90a71e5e7d9dca61dd1
   languageName: node
   linkType: hard
 
@@ -4233,6 +4248,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jotai@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "jotai@npm:3.0.1"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    react: ">=18.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: 10c0/84b6adac2e3c8f7e8fd27c52f3206ceb1b22f9b46dfb81100b3765f652134399e91bfaee49a15e2e25083adf5638b8168aeb338234074e9c80955d51c231b456
+  languageName: node
+  linkType: hard
+
 "js-tokens@npm:^3.0.0 || ^4.0.0, js-tokens@npm:^4.0.0":
   version: 4.0.0
   resolution: "js-tokens@npm:4.0.0"
@@ -5911,6 +5941,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"typanion@npm:^3.8.0":
+  version: 3.14.0
+  resolution: "typanion@npm:3.14.0"
+  checksum: 10c0/8b03b19844e6955bfd906c31dc781bae6d7f1fb3ce4fe24b7501557013d4889ae5cefe671dafe98d87ead0adceb8afcb8bc16df7dc0bd2b7331bac96f3a7cae2
+  languageName: node
+  linkType: hard
+
 "type-check@npm:^0.4.0, type-check@npm:~0.4.0":
   version: 0.4.0
   resolution: "type-check@npm:0.4.0"
@@ -6403,7 +6440,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"wrap-ansi@npm:^10.0.0":
+"wrap-ansi@npm:^10.0.0, wrap-ansi@npm:^10.0.2":
   version: 10.0.2
   resolution: "wrap-ansi@npm:10.0.2"
   dependencies:
@@ -6513,7 +6550,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.25.0 || ^4.0.0":
+"zod@npm:^3.25.0 || ^4.0.0, zod@npm:^4.6.5":
   version: 4.6.5
   resolution: "zod@npm:4.6.5"
   checksum: 10c0/32eb6c5e98becbe045675b2141c3611451c16ba567f9779231d79af41c4d651ca1c22f154aef7e6c6e77b929f23e43f1154ca05b82e119e922353725d6776af5

@@ -37,10 +37,14 @@
     "@sabinmarcu/theme": "1.2.4",
     "@vanilla-extract/css": "^1.21.2",
     "@vanilla-extract/dynamic": "^2.1.5",
+    "clipanion": "^4.0.0-rc.4",
     "ink": "^7.1.1",
+    "jotai": "^3.0.1",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "wrap-ansi": "^10.0.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
