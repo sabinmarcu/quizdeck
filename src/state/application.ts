@@ -18,6 +18,7 @@ export type Startup =
   | {
     status: 'ready';
     bank: Bank;
+    banks: ReadonlyMap<string, Bank>;
     snapshot: Snapshot;
     location: string;
     retention: ProgressStorage['retention'];
@@ -76,6 +77,12 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
     if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
       set(startupAtom, {
         ...latest,
+        banks: new Map([
+          ...latest.banks,
+          ...changes.flatMap((change) => (change.kind === 'putBank'
+            ? [[change.bank.version, change.bank] as const]
+            : [])),
+        ]),
         snapshot,
       });
     }
@@ -87,6 +94,18 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
     set(pendingAtom, false);
   }
 });
+
+async function loadSavedBanks(storage: ProgressStorage, snapshot: Snapshot) {
+  const banks = new Map<string, Bank>();
+  for (const entry of snapshot.banks) {
+    const bank = await storage.getBank(entry.version);
+    if (!bank) {
+      throw new Error('A saved question bank is unavailable. Progress was not reset.');
+    }
+    banks.set(entry.version, bank);
+  }
+  return banks;
+}
 
 export function createAppSession(openStorage: () => Promise<ProgressStorage>): AppSession {
   const store = createStore();
@@ -113,11 +132,13 @@ export function createAppSession(openStorage: () => Promise<ProgressStorage>): A
     }
     try {
       const snapshot = await storage.load();
+      const banks = await loadSavedBanks(storage, snapshot);
       const latest = store.get(startupAtom);
       if (!closed && version === refreshVersion && latest.status === 'ready'
         && snapshot.revision >= latest.snapshot.revision) {
         store.set(startupAtom, {
           ...latest,
+          banks,
           snapshot,
         });
       }
@@ -168,11 +189,13 @@ export function createAppSession(openStorage: () => Promise<ProgressStorage>): A
               }
             }
           }
+          const banks = await loadSavedBanks(storage, snapshot);
           if (!closed) {
             store.set(storageAtom, storage);
             store.set(startupAtom, {
               status: 'ready',
               bank,
+              banks,
               snapshot,
               location: storage.location,
               retention: storage.retention,

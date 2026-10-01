@@ -1,5 +1,7 @@
-export const shellSections = ['Overview', 'Storage', 'Help'] as const;
-export type ShellSection = typeof shellSections[number];
+export const mainMenuItems = ['Learn', 'Extras'] as const;
+export const extrasMenuItems = ['Overview', 'Storage', 'Help'] as const;
+export type ExtrasSection = typeof extrasMenuItems[number];
+export type ShellSection = 'Learn' | ExtrasSection;
 export type NavigationAction = 'next' | 'previous' | 'first' | 'last' | 'activate' | 'help' | 'back' | 'pageDown' | 'pageUp';
 
 export interface NavigationInput {
@@ -52,15 +54,15 @@ export function navigationAction(input: NavigationInput): NavigationAction | nul
   }
 }
 
-export function nextFocus(index: number, action: NavigationAction): number {
+export function nextFocus(index: number, action: NavigationAction, count: number): number {
   switch (action) {
-    case 'next': { return Math.min(shellSections.length - 1, index + 1);
+    case 'next': { return Math.min(Math.max(0, count - 1), index + 1);
     }
     case 'previous': { return Math.max(0, index - 1);
     }
     case 'first': { return 0;
     }
-    case 'last': { return shellSections.length - 1;
+    case 'last': { return Math.max(0, count - 1);
     }
     default: { return index;
     }

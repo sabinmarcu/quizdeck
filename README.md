@@ -1,12 +1,13 @@
 # claude-certification
 
 React + TypeScript application with React DOM/Vite and an Ink terminal interface.
-Phase 1 is implemented: validated question data, transactional local persistence,
-shared Jotai startup/state, Overview/Storage/Help shells, and Clipanion commands.
-Learning and practice workflows belong to the later phases and are not exposed yet.
+Phases 1 and 2 are implemented: validated question data, transactional local
+persistence, shared Jotai state, Clipanion commands, and searchable learning in
+both interfaces. Practice runs and timing remain reserved for Phase 3.
 
 [Application vision](docs/planning/vision.md) ·
 [Phase 1](docs/planning/01-foundations-and-launch.md) ·
+[Phase 2](docs/planning/02-learning-mode.md) ·
 [Remaining implementation phases](docs/planning/vision.md#12-phased-implementation-plan)
 
 ## Development and launch
@@ -37,17 +38,70 @@ source files and the SQLite database are not web endpoints.
 
 ## Shell controls
 
-- `j/k`, `h/l`, or arrows move section focus; **Enter** opens the focused section.
-- `gg`/Home and `G`/End focus the first and last sections.
-- `?` opens Help; Escape returns to Overview; Ctrl-d/u scrolls half a page.
+The top-level order is **Learn**, then **Extras**. Extras contains **Overview**,
+**Storage**, and **Help**, in that order. Practice will be inserted after Learn
+when its workflow is implemented; no placeholder menu entry is shown.
+
+- `j/k`, `h/l`, or arrows move menu focus; **Enter** opens the focused item.
+- `gg`/Home and `G`/End focus the first and last items in the current menu.
+- `?` opens Extras → Help outside learning; learning retains its contextual help.
+  Escape closes Extras or returns to the parent/menu focus; Ctrl-d/u scrolls.
 - CLI: `q` or Ctrl-C exits; `r` retries after a storage error.
 - Web: Tab, click, and touch work alongside shortcuts. Text editing and composition
   do not trigger character shortcuts. A denied persistent-retention request must
   be acknowledged before entering the shell.
 
-Overview reports the real bank and saved-record counts. Storage exposes the actual
-backend, location, retention, and revision. Opening the shell does not answer a
-question, infer learning completion, or start a practice timer.
+Extras → Overview reports the real bank and saved-record counts. Extras → Storage
+shows the backend, location, retention, and revision. Opening a menu does not
+answer a question, infer learning completion, or start a practice timer.
+
+## Learning mode
+
+Open **Learn** in either interface. Search by source question number or description,
+and filter All, Unanswered, Completed, Correctly answered, or Incorrectly answered.
+Completed/total counts remain independent of the current search results.
+
+Opening a question or moving choice focus does not complete it. Activate a choice
+with Enter, a–d/1–4, or a web button; there is no separate submit step. The answer
+and correct/incorrect completion status are persisted together, then correctness
+and justifications are shown. Missing source explanations are identified honestly.
+Correctly answered question statuses are green; incorrectly answered statuses are
+red. Revealed correct choices are green and all incorrect choices are red in both
+apps. Unanswered choices have no correctness colors; textual labels accompany color.
+The current policy retains the first answer until **Reset all learning progress**;
+there is no per-question reset or re-answer control. Reopening restores feedback.
+Learning has no timers or timing records.
+
+If source content changes, the list uses the current bank but an answered detail
+uses its recorded bank version for consistent choice/outcome/justification feedback.
+A historical-content notice explains the difference; completion is not silently
+reset. Global reset permits answering against the current bank.
+
+The global reset requires confirmation, defaults to Cancel, and clears only
+learning answers/statuses after a successful transaction. Practice records, bank
+snapshots, and their timing are untouched. Failed saves leave prior committed
+progress intact and display the error; stale-session conflicts require reloading
+the application before trying again.
+
+- `/` edits search; Escape stops editing without clearing. CLI `c` or web
+  **Clear search** clears it; CLI `f` cycles the status filter.
+- In the list, `j/k` moves focus, `gg/G` reaches boundaries, and Enter or `l`
+  opens a row. `h` or Escape returns to the shell.
+- In detail, `h/l` or left/right browse the filtered order captured on opening,
+  even if answering removes a row from Unanswered; Escape or web
+  **Back to list** restores list context. `j/k` focuses unanswered choices or
+  scrolls answered feedback; Ctrl-d/u scrolls longer content.
+- CLI `r` opens the named global-reset confirmation; `j/k` selects Cancel/Confirm
+  and Enter activates it. `q` types normally while search owns input.
+- CLI question detail separates the prompt and choices with extra space. The
+  focused unanswered choice is marked with `›` and highlighted cyan directly,
+  including wrapped text; hotkeys appear once in the footer. Moving focus does
+  not record an answer, and saved choices retain green/red correctness colors.
+- Web uses native search/filter/buttons and reset/help dialogs, with focus restored
+  after dismissal. Tab, click, touch, and text composition remain available.
+
+Query, filter, and preferred list row are retained within the application session.
+Permanent answer/status records survive application restarts.
 
 ## Persistence and state
 

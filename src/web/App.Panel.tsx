@@ -2,7 +2,7 @@ import type {
   BankInfo,
   Startup,
 } from '../state/application';
-import type { ShellSection } from '../state/navigation';
+import type { ExtrasSection } from '../state/navigation';
 import {
   panel,
   details,
@@ -13,7 +13,7 @@ import { defaultProgressDatabaseName } from './IndexedDbProgressStorage';
 
 export namespace Panel {
   export interface Props {
-    section: ShellSection;
+    section: ExtrasSection;
     startup: Extract<Startup, { status: 'ready' }>;
     bankInfo: BankInfo;
   }
@@ -42,9 +42,9 @@ export function Panel({
       <section className={panel} aria-labelledby="help-heading">
         <h2 id="help-heading">Keyboard help</h2>
         <ul className={list}>
-          <li>j/k, h/l, and arrows move section focus; Enter opens the focused section.</li>
-          <li>gg/Home focuses the first section; G/End focuses the last.</li>
-          <li>? opens help; Escape returns to Overview.</li>
+          <li>j/k, h/l, and arrows move menu focus; Enter opens the focused item.</li>
+          <li>gg/Home and G/End focus the first and last visible menu items.</li>
+          <li>? opens Extras → Help. Escape closes Extras or returns focus to Learn.</li>
           <li>Ctrl-d/u scrolls half a page. Tab, click, and touch remain available.</li>
           <li>Typing or composing in a text control never invokes navigation shortcuts.</li>
         </ul>

@@ -14,7 +14,8 @@ import {
 import {
   navigationAction,
   nextFocus,
-  shellSections,
+  mainMenuItems,
+  extrasMenuItems,
 } from '../state/navigation';
 import type {
   NavigationAction,
@@ -32,8 +33,10 @@ import {
   subtitle,
   tabList,
   tab,
+  extrasMenu,
 } from './App.css';
 import { Panel } from './App.Panel';
+import { Learning } from './Learning';
 
 function isEditingTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) {
@@ -52,7 +55,8 @@ export function App({ onReload }: App.Props) {
   const bankInfo = useAtomValue(bankInfoAtom);
   const pending = useAtomValue(pendingAtom);
   const saveError = useAtomValue(actionErrorAtom);
-  const [section, setSection] = useState<ShellSection>('Overview');
+  const [section, setSection] = useState<ShellSection>('Learn');
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState(0);
   const [acknowledgedLocation, setAcknowledgedLocation] = useState<string | null>(null);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
@@ -61,19 +65,35 @@ export function App({ onReload }: App.Props) {
     && (startup.retention === 'persistent' || acknowledgedLocation === startup.location);
 
   const selectSection = useCallback((index: number) => {
+    if (index === 1) {
+      setExtrasOpen((open) => !open);
+      setFocusedSection(1);
+      return;
+    }
+    const nextSection = index === 0 ? 'Learn' : extrasMenuItems[index - 2];
+    if (!nextSection) {
+      return;
+    }
+    setSection(nextSection);
     setFocusedSection(index);
-    setSection(shellSections[index] ?? 'Overview');
+    if (nextSection === 'Learn') {
+      setExtrasOpen(false);
+    }
     buttons.current[index]?.focus();
   }, []);
 
   const moveFocus = useCallback((nextAction: NavigationAction) => {
-    const next = nextFocus(focusedSection, nextAction);
+    const count = mainMenuItems.length + (extrasOpen ? extrasMenuItems.length : 0);
+    const next = nextFocus(focusedSection, nextAction, count);
     setFocusedSection(next);
     buttons.current[next]?.focus();
-  }, [focusedSection]);
+  }, [extrasOpen, focusedSection]);
 
   const handleKey = useCallback((event: KeyboardEvent) => {
-    if (!interactive || isEditingTarget(event.target) || event.isComposing) {
+    const menuTarget = event.target instanceof Element
+      && event.target.closest('[data-app-navigation]') !== null;
+    if (!interactive || (section === 'Learn' && !extrasOpen && !menuTarget)
+      || isEditingTarget(event.target) || event.isComposing) {
       return;
     }
     if (event.key === 'g' && !event.ctrlKey && !event.altKey && !event.metaKey) {
@@ -112,12 +132,21 @@ export function App({ onReload }: App.Props) {
         break;
       }
       case 'help': {
-        selectSection(2);
+        setExtrasOpen(true);
+        setSection('Help');
+        setFocusedSection(4);
+        requestAnimationFrame(() => { buttons.current[4]?.focus(); });
 
         break;
       }
       case 'back': {
-        selectSection(0);
+        if (extrasOpen) {
+          setExtrasOpen(false);
+          setFocusedSection(1);
+          buttons.current[1]?.focus();
+        } else {
+          selectSection(0);
+        }
 
         break;
       }
@@ -130,7 +159,7 @@ export function App({ onReload }: App.Props) {
         moveFocus(nextAction);
       }
     }
-  }, [interactive, focusedSection, moveFocus, selectSection]);
+  }, [interactive, extrasOpen, focusedSection, moveFocus, section, selectSection]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKey);
@@ -188,24 +217,53 @@ export function App({ onReload }: App.Props) {
         <h1 className={title}>Claude certification</h1>
         <p className={subtitle}>Local question data and saved progress.</p>
       </header>
-      <nav className={tabList} aria-label="Application sections">
-        {shellSections.map((item, index) => (
+      <nav aria-label="Application navigation" data-app-navigation>
+        <div className={tabList}>
           <button
-            ref={(element) => { buttons.current[index] = element; }}
-            aria-pressed={section === item}
+            ref={(element) => { buttons.current[0] = element; }}
+            aria-pressed={section === 'Learn'}
             className={tab}
-            key={item}
             type="button"
-            onFocus={() => { setFocusedSection(index); }}
-            onClick={() => { selectSection(index); }}
+            onFocus={() => { setFocusedSection(0); }}
+            onClick={() => { selectSection(0); }}
           >
-            {item}
+            Learn
           </button>
-        ))}
+          <button
+            ref={(element) => { buttons.current[1] = element; }}
+            aria-expanded={extrasOpen}
+            aria-controls="extras-menu"
+            className={tab}
+            type="button"
+            onFocus={() => { setFocusedSection(1); }}
+            onClick={() => { selectSection(1); }}
+          >
+            Extras
+          </button>
+        </div>
+        {extrasOpen && (
+          <nav id="extras-menu" aria-label="Extras" className={extrasMenu}>
+            {extrasMenuItems.map((item, index) => (
+              <button
+                ref={(element) => { buttons.current[index + 2] = element; }}
+                aria-pressed={section === item}
+                className={tab}
+                key={item}
+                type="button"
+                onFocus={() => { setFocusedSection(index + 2); }}
+                onClick={() => { selectSection(index + 2); }}
+              >
+                {item}
+              </button>
+            ))}
+          </nav>
+        )}
       </nav>
       {pending && <output className={status}>Saving progress…</output>}
       {saveError && <p className={error} role="alert">{saveError}</p>}
-      <Panel section={section} startup={startup} bankInfo={bankInfo} />
+      {section === 'Learn'
+        ? <Learning keyboardEnabled={!extrasOpen} onExit={() => { selectSection(0); }} />
+        : <Panel section={section} startup={startup} bankInfo={bankInfo} />}
     </main>
   );
 }

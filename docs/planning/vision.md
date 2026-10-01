@@ -59,7 +59,9 @@ not persisted progress: their local databases remain separate.
 
 ## 3. Navigation and information architecture
 
-The home screen exposes **Learn** and **Practice**.
+The top-level order is **Learn**, **Practice** (when implemented), then **Extras**.
+Extras groups **Overview**, **Storage**, and **Help**, in that order, in both apps.
+Until Phase 3 delivers practice, only Learn and Extras appear at the top level.
 
 - Learn opens the question list, then a question-detail view.
 - Practice opens a run list with **Start new run**, resumable runs, and completed
@@ -110,6 +112,8 @@ Planned invocations using the existing repository script names:
 
 - Include all questions, initially ordered by original question ID.
 - Show original ID, a question-text preview, and a textual progress indicator.
+- Render correctly answered statuses green and incorrectly answered statuses red
+  in both renderers; retain textual labels alongside color.
 - Search by original ID or question-description text, case-insensitively. Avoid
   matching hidden explanation text to keep search results understandable.
 - Support status filters: **All**, **Unanswered**, **Completed**, **Correctly
@@ -136,6 +140,10 @@ Completion is represented by the answer outcome, not a separate manual action:
 - Once the save succeeds, show the selected choice, the answer outcome, correct
   choice, and justifications for the available answers. Missing justification
   text is identified as missing from the source; it is not invented.
+- Revealed correct answers render green and incorrect answers red in both apps.
+  Unanswered choices have no correctness colors; focus treatment remains visible.
+  Practice applies correctness colors only in its
+  completed report, never as early correctness feedback.
 - Both correct and incorrect answers count as completed. Completion does not
   imply mastery or require a correct practice answer.
 - Reopening an answered learning question restores its recorded choice, status,
@@ -275,8 +283,10 @@ This is a conceptual data contract, not a database schema or TypeScript API.
   complete question content for each run.
 - **Learning progress:** original question ID, recorded answer, and completion
   status (`correctly_answered` or `incorrectly_answered`); no record means
-  `unanswered`. The current bank is the source of learning content. No learning
-  time-tracking fields are stored.
+  `unanswered`. The current bank supplies the list and unanswered content. Saved
+  feedback uses the recorded bank version so reordered or edited choices do not
+  contradict the recorded outcome; disclose historical content when applicable.
+  No learning time-tracking fields are stored.
 - **Practice run:** unique run ID, bank-version reference, creation/completion
   times, lifecycle state, ordered list of 60 IDs, recorded answers and their
   correct/incorrect outcomes, next unanswered position, viewed position,

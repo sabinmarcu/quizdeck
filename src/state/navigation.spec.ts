@@ -6,6 +6,8 @@ import {
 import {
   navigationAction,
   nextFocus,
+  extrasMenuItems,
+  mainMenuItems,
 } from './navigation';
 
 describe('shell input ownership', () => {
@@ -38,10 +40,14 @@ describe('shell input ownership', () => {
   });
 
   it('keeps focus inside section boundaries and separate from activation or scrolling', () => {
-    expect(nextFocus(0, 'previous')).toBe(0);
-    expect(nextFocus(2, 'next')).toBe(2);
-    expect(nextFocus(1, 'activate')).toBe(1);
-    expect(nextFocus(1, 'pageDown')).toBe(1);
-    expect(nextFocus(1, 'pageUp')).toBe(1);
+    for (const items of [mainMenuItems, extrasMenuItems]) {
+      const last = items.length - 1;
+      expect(nextFocus(0, 'previous', items.length)).toBe(0);
+      expect(nextFocus(last, 'next', items.length)).toBe(last);
+      expect(nextFocus(last, 'last', items.length)).toBe(last);
+      expect(nextFocus(1, 'activate', items.length)).toBe(1);
+      expect(nextFocus(1, 'pageDown', items.length)).toBe(1);
+      expect(nextFocus(1, 'pageUp', items.length)).toBe(1);
+    }
   });
 });

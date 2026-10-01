@@ -15,9 +15,15 @@ setupTheme({
   },
   secondary: '#7463a8',
   info: '#147a9b',
-  success: '#28734f',
+  success: {
+    light: '#155132',
+    dark: '#b5ffd0',
+  },
   warning: '#a35b00',
-  error: '#a33131',
+  error: {
+    light: '#7f1d1d',
+    dark: '#ffb4b4',
+  },
   breakpoint: {
     mobile: 700,
     tablet: 1000,

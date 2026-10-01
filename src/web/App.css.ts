@@ -30,6 +30,12 @@ export const tabList = style({
   gap: theme.grid.xs,
 });
 
+export const extrasMenu = style([tabList, {
+  marginBlockStart: theme.grid.s,
+  paddingInlineStart: theme.grid.m,
+  borderInlineStart: `${theme.grid.xs} solid ${theme.colors.primary.muted}`,
+}]);
+
 export const tab = style({
   background: theme.colors.background.surface,
   borderInlineStart: `1px solid ${theme.colors.primary.muted}`,

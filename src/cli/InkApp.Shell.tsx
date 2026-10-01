@@ -26,17 +26,30 @@ import type {
 import {
   navigationAction,
   nextFocus,
-  shellSections,
+  mainMenuItems,
+  extrasMenuItems,
 } from '../state/navigation';
-import type { ShellSection } from '../state/navigation';
+import type {
+  ExtrasSection,
+  ShellSection,
+} from '../state/navigation';
+import { InkLearning } from './InkLearning';
 
-function sectionText(section: ShellSection, startup: Startup, bankInfo: BankInfo | null): string {
+interface ExtrasContent {
+  section: ExtrasSection | null;
+  startup: Startup;
+  bankInfo: BankInfo | null;
+}
+
+function sectionText({
+  section, startup, bankInfo,
+}: ExtrasContent): string {
   if (section === 'Help') {
     return [
       'Keyboard help',
-      'j/k, h/l, and arrows move section focus. Enter opens it.',
-      'gg/Home focuses the first section; G/End focuses the last.',
-      '? opens help; Escape returns to Overview.',
+      'j/k, h/l, and arrows move menu focus. Enter opens the focused item.',
+      'gg/Home focuses the first item; G/End focuses the last.',
+      '? opens Extras > Help. Escape returns to the parent menu.',
       'Ctrl-d/u scrolls the content half a page.',
       'q or Ctrl-c exits. On a storage error, r reloads storage.',
     ].join('\n');
@@ -46,6 +59,9 @@ function sectionText(section: ShellSection, startup: Startup, bankInfo: BankInfo
   }
   if (startup.status === 'error') {
     return `Storage error: ${startup.message}\nPress r to reload or q to exit.`;
+  }
+  if (section === null) {
+    return 'Choose Learn or open Extras for Overview, Storage, and Help.';
   }
   if (section === 'Storage') {
     return [
@@ -85,12 +101,17 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
     columns: stdout.columns || 80,
   });
   const [focused, setFocused] = useState(0);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState<ShellSection | null>(null);
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [offset, setOffset] = useState(0);
   const firstGAt = useRef<number | null>(null);
   const pageSize = Math.max(1, size.rows - 8);
   const lines = useMemo(() => wrapAnsi(
-    sectionText(shellSections[active]!, startup, bankInfo),
+    sectionText({
+      section: active === 'Learn' ? null : active,
+      startup,
+      bankInfo,
+    }),
     Math.max(1, size.columns - 2),
     {
       hard: true,
@@ -98,6 +119,7 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
     },
   ).split('\n'), [active, startup, bankInfo, size.columns]);
   const visibleOffset = Math.min(offset, Math.max(0, lines.length - pageSize));
+  const menuItems = extrasOpen ? extrasMenuItems : mainMenuItems;
 
   useEffect(() => {
     const resize = () => {
@@ -143,43 +165,98 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
     if (!nextAction) {
       return;
     }
-    if (nextAction === 'pageDown' || nextAction === 'pageUp') {
-      const step = Math.max(1, Math.floor(pageSize / 2));
-      setOffset(Math.max(0, Math.min(
-        lines.length - pageSize,
-        visibleOffset + (nextAction === 'pageDown' ? step : -step),
-      )));
-    } else if (nextAction === 'activate' || nextAction === 'help' || nextAction === 'back') {
-      let index = focused;
-      if (nextAction === 'help') {
-        index = 2;
-      } else if (nextAction === 'back') {
-        index = 0;
+    switch (nextAction) {
+      case 'pageDown':
+      case 'pageUp': {
+        const step = Math.max(1, Math.floor(pageSize / 2));
+        setOffset(Math.max(0, Math.min(
+          lines.length - pageSize,
+          visibleOffset + (nextAction === 'pageDown' ? step : -step),
+        )));
+
+        break;
       }
-      setActive(index);
-      setFocused(index);
-      setOffset(0);
-    } else {
-      setFocused((current) => nextFocus(current, nextAction));
+      case 'help': {
+        setExtrasOpen(true);
+        setActive('Help');
+        setFocused(extrasMenuItems.indexOf('Help'));
+        setOffset(0);
+
+        break;
+      }
+      case 'back': {
+        setActive(null);
+        setFocused(extrasOpen ? mainMenuItems.indexOf('Extras') : 0);
+        setExtrasOpen(false);
+        setOffset(0);
+
+        break;
+      }
+      case 'activate': {
+        if (extrasOpen) {
+          setActive(extrasMenuItems[focused] ?? 'Overview');
+        } else if (mainMenuItems[focused] === 'Extras') {
+          setExtrasOpen(true);
+          setActive(null);
+          setFocused(0);
+        } else {
+          setActive('Learn');
+        }
+        setOffset(0);
+
+        break;
+      }
+      default: {
+        setFocused((current) => nextFocus(current, nextAction, menuItems.length));
+      }
     }
-  });
+  }, { isActive: active !== 'Learn' });
+
+  const exitLearning = () => {
+    setActive(null);
+    setExtrasOpen(false);
+    setFocused(0);
+    setOffset(0);
+  };
 
   return (
     <Box flexDirection="column" paddingX={1}>
       <Text bold>Claude certification</Text>
       <Box marginTop={1}>
-        {shellSections.map((section, index) => (
-          <Text key={section} inverse={index === focused} color={index === active ? 'cyan' : undefined}>
-            {`[${section}] `}
+        {mainMenuItems.map((item, index) => (
+          <Text
+            key={item}
+            inverse={!extrasOpen && index === focused}
+            color={item === 'Learn' && active === 'Learn' ? 'cyan' : undefined}
+          >
+            {`[${item}] `}
           </Text>
         ))}
       </Box>
-      <Box marginTop={1}><Text>{lines.slice(visibleOffset, visibleOffset + pageSize).join('\n')}</Text></Box>
-      {pending && <Text>Saving progress…</Text>}
-      {saveError && <Text color="red">{`Save error: ${saveError}`}</Text>}
-      <Text dimColor>
-        {`j/k focus · Enter open · ? help · q quit · lines ${visibleOffset + 1}-${Math.min(lines.length, visibleOffset + pageSize)}/${lines.length}`}
-      </Text>
+      {extrasOpen && (
+        <Box marginTop={1}>
+          <Text>Extras › </Text>
+          {extrasMenuItems.map((item, index) => (
+            <Text key={item} inverse={index === focused} color={item === active ? 'cyan' : undefined}>
+              {`[${item}] `}
+            </Text>
+          ))}
+        </Box>
+      )}
+      {active === 'Learn'
+        ? (
+          <InkLearning onExit={exitLearning} onQuit={onQuit} />
+        )
+        : (
+          <>
+            <Box marginTop={1}><Text>{lines.slice(visibleOffset, visibleOffset + pageSize).join('\n')}</Text></Box>
+            {pending && <Text>Saving progress…</Text>}
+            {saveError && <Text color="red">{`Save error: ${saveError}`}</Text>}
+            <Text dimColor>
+              {`j/k focus · Enter open · ? help · q quit · lines ${visibleOffset + 1}-${Math.min(lines.length, visibleOffset + pageSize)}/${lines.length}`}
+            </Text>
+          </>
+        )}
     </Box>
   );
 }

@@ -89,6 +89,9 @@ export function applyTransaction(
         break;
       }
       case 'putLearning': {
+        if (learning.has(change.answer.questionId)) {
+          throw new StorageConflictError('This learning question already has a recorded answer.');
+        }
         learning.set(change.answer.questionId, change.answer);
         break;
       }

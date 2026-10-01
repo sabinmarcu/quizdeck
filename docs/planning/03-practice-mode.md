@@ -90,6 +90,10 @@ correctness/justifications, and no learning time tracking.
 
 ## Equivalent renderer delivery
 
+Add the real Practice top-level entry after Learn and before Extras in both apps.
+Overview, Storage, and Help stay grouped under Extras; do not flatten the menus or
+advertise Practice before its complete workflow is available.
+
 | Capability | Ink CLI | React DOM web |
 | --- | --- | --- |
 | Run list | Navigable new/resume/review actions and saved-run summaries | Equivalent keyboard/pointer-operable history and actions |

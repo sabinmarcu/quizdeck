@@ -1,6 +1,6 @@
 # Phase 2 — Learning mode
 
-**Status:** planned, not implemented. **Dependency:**
+**Status:** implemented. **Dependency:**
 [Phase 1 — Foundations and launch](01-foundations-and-launch.md).
 
 [Vision](vision.md) · Next: [Phase 3 — Practice](03-practice-mode.md)
@@ -16,11 +16,10 @@ in this phase. A web-only or CLI-only implementation does not satisfy its exit.
 
 ## Decision gate
 
-Vision section 2 still proposes retaining the recorded learning answer until the
-global reset. Confirm that policy before implementing re-answer controls or a
-record-update path. This plan assumes the first answer is retained. If retries
-are chosen, update this phase and the vision to specify whether the recorded status
-means the first or latest answer; do not invent a per-question reset.
+This implementation uses the plan's conservative first-answer policy: retain the
+recorded learning answer until the global reset. No re-answer controls or
+per-question reset paths are added. If retries are selected later, revise this
+phase and the vision to define whether status means the first or latest answer.
 
 ## Shared implementation
 
@@ -108,3 +107,51 @@ with no initial feedback leak, missing-source fabrication, or unsaved completion
 Progress survives reopening. Global reset is atomic, confirmed, and learning-only.
 Keyboard and pointer/native controls work, long text remains readable, and learning
 remains entirely untimed.
+
+## Implementation and verification evidence
+
+- `src/state/learning.ts` owns session query/filter/focus, derived counts and
+  filtered rows, feedback-safe detail projections, transactional answer actions,
+  and confirmed global reset. Storage rejects an already recorded learning answer.
+- `src/cli/InkLearning.tsx` and `src/web/Learning*.tsx` deliver the same learning
+  capability using native SQLite and IndexedDB respectively. The shells expose
+  Learn without adding any practice workflow or learning timing.
+- Real terminal and browser interaction covered correct/incorrect completion,
+  focus without answering, search/filter context, read-only saved feedback, the
+  three-choice question, missing explanations, and canceled/confirmed reset.
+- Source and built Ink were exercised, including narrow wrapping, search text
+  containing q/j/k, repeated opening, restart persistence, native SQLite answer
+  and reset failures, visible errors, and successful retry after removing failure.
+- Browser checks covered native IndexedDB answer persistence/reopening, stale-write
+  and reset errors without false feedback or completion, retained failed-reset
+  confirmation, saved practice-record preservation, modal focus restoration,
+  keyboard help, empty search, and a 390-pixel layout without horizontal overflow.
+- Review corrections were exercised in real interfaces: repeated shortcuts during
+  an IndexedDB save produced no false error; a successful answer restored focus;
+  empty searches could not open stale rows; and answering under Unanswered retained
+  the same previous/next detail order in both renderers.
+- Recorded completion survives source updates by stable ID. Answered detail and
+  justifications use the record's immutable bank version, with an explicit
+  historical-content notice, rather than relabeling an old choice as a new one.
+- A native terminal Delete-key payload incorrectly activated choice A during smoke
+  verification. Shared exact-single-key shortcut validation corrected it; the
+  failing-before/passing-after terminal scenario and permanent regression coverage
+  verify that special keys/pasted strings cannot answer a question.
+- 44 colocated Vitest tests passed, including native SQLite answer/reset rollback,
+  practice-record preservation, stable detail neighbors, and saved-bank feedback.
+  Typecheck, ESLint fixing checks, and both builds passed. Managed AI instructions
+  remain current.
+- Runtime proof is Linux/Chromium; Windows and Safari runtime verification remains
+  Phase 4. Existing ESLint peer-version and Vite large-chunk warnings remain.
+- Status coloring was exercised in actual Ink ANSI output and the browser:
+  correctly answered questions/correct choices green, incorrect outcomes/choices
+  red, and unanswered content neutral. Web theme variants and feedback backgrounds
+  maintain measured text contrast above 4.5:1 in light and dark modes.
+- CLI detail layout was exercised at wide and narrow terminal sizes: extra space
+  before answers, one footer hotkey summary, and a cyan inline `›` focus marker
+  across wrapped choice text. Focus alone saved no answer; saved feedback retained
+  green/red correctness without the removed focused-choice readout.
+- Both renderers now expose Learn first and Overview/Storage/Help under Extras.
+  Real keyboard/native-menu checks covered disclosure, focus-only movement, item
+  activation, parent/back handling, contextual help, retained learning state,
+  and a 390-pixel web layout without horizontal overflow.
