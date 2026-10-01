@@ -34,6 +34,7 @@ import type {
   ShellSection,
 } from '../state/navigation';
 import { InkLearning } from './InkLearning';
+import { InkPractice } from './InkPractice';
 
 interface ExtrasContent {
   section: ExtrasSection | null;
@@ -61,7 +62,7 @@ function sectionText({
     return `Storage error: ${startup.message}\nPress r to reload or q to exit.`;
   }
   if (section === null) {
-    return 'Choose Learn or open Extras for Overview, Storage, and Help.';
+    return 'Choose Learn or Practice; open Extras for Overview, Storage, and Help.';
   }
   if (section === 'Storage') {
     return [
@@ -108,7 +109,7 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
   const pageSize = Math.max(1, size.rows - 8);
   const lines = useMemo(() => wrapAnsi(
     sectionText({
-      section: active === 'Learn' ? null : active,
+      section: active === 'Learn' || active === 'Practice' ? null : active,
       startup,
       bankInfo,
     }),
@@ -200,7 +201,8 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
           setActive(null);
           setFocused(0);
         } else {
-          setActive('Learn');
+          const section = mainMenuItems[focused];
+          setActive(section === 'Practice' ? section : 'Learn');
         }
         setOffset(0);
 
@@ -210,12 +212,19 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
         setFocused((current) => nextFocus(current, nextAction, menuItems.length));
       }
     }
-  }, { isActive: active !== 'Learn' });
+  }, { isActive: active !== 'Learn' && active !== 'Practice' });
 
   const exitLearning = () => {
     setActive(null);
     setExtrasOpen(false);
     setFocused(0);
+    setOffset(0);
+  };
+
+  const exitPractice = () => {
+    setActive(null);
+    setExtrasOpen(false);
+    setFocused(mainMenuItems.indexOf('Practice'));
     setOffset(0);
   };
 
@@ -227,7 +236,10 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
           <Text
             key={item}
             inverse={!extrasOpen && index === focused}
-            color={item === 'Learn' && active === 'Learn' ? 'cyan' : undefined}
+            color={(item === 'Learn' && active === 'Learn')
+              || (item === 'Practice' && active === 'Practice')
+              ? 'cyan'
+              : undefined}
           >
             {`[${item}] `}
           </Text>
@@ -243,20 +255,18 @@ export function InkShell({ session, onQuit }: InkShell.Props) {
           ))}
         </Box>
       )}
-      {active === 'Learn'
-        ? (
-          <InkLearning onExit={exitLearning} onQuit={onQuit} />
-        )
-        : (
-          <>
-            <Box marginTop={1}><Text>{lines.slice(visibleOffset, visibleOffset + pageSize).join('\n')}</Text></Box>
-            {pending && <Text>Saving progress…</Text>}
-            {saveError && <Text color="red">{`Save error: ${saveError}`}</Text>}
-            <Text dimColor>
-              {`j/k focus · Enter open · ? help · q quit · lines ${visibleOffset + 1}-${Math.min(lines.length, visibleOffset + pageSize)}/${lines.length}`}
-            </Text>
-          </>
-        )}
+      {active === 'Learn' && <InkLearning onExit={exitLearning} onQuit={onQuit} />}
+      {active === 'Practice' && <InkPractice onExit={exitPractice} onQuit={onQuit} />}
+      {active !== 'Learn' && active !== 'Practice' && (
+        <>
+          <Box marginTop={1}><Text>{lines.slice(visibleOffset, visibleOffset + pageSize).join('\n')}</Text></Box>
+          {pending && <Text>Saving progress…</Text>}
+          {saveError && <Text color="red">{`Save error: ${saveError}`}</Text>}
+          <Text dimColor>
+            {`j/k focus · Enter open · ? help · q quit · lines ${visibleOffset + 1}-${Math.min(lines.length, visibleOffset + pageSize)}/${lines.length}`}
+          </Text>
+        </>
+      )}
     </Box>
   );
 }

@@ -1,7 +1,7 @@
-export const mainMenuItems = ['Learn', 'Extras'] as const;
+export const mainMenuItems = ['Learn', 'Practice', 'Extras'] as const;
 export const extrasMenuItems = ['Overview', 'Storage', 'Help'] as const;
 export type ExtrasSection = typeof extrasMenuItems[number];
-export type ShellSection = 'Learn' | ExtrasSection;
+export type ShellSection = 'Learn' | 'Practice' | ExtrasSection;
 export type NavigationAction = 'next' | 'previous' | 'first' | 'last' | 'activate' | 'help' | 'back' | 'pageDown' | 'pageUp';
 
 export interface NavigationInput {

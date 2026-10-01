@@ -11,6 +11,8 @@ import type {
   ProgressStorage,
   StorageChange,
 } from '../data/storage';
+import { createPracticeController } from './practice-session';
+import type { PracticeController } from './practice-session';
 
 export type Startup =
   | { status: 'loading' }
@@ -32,6 +34,7 @@ export interface BankInfo {
 
 export interface AppSession {
   store: Store;
+  practice: PracticeController;
   start(): Promise<void>;
   close(): void;
 }
@@ -40,6 +43,7 @@ export const startupAtom = atom<Startup>({ status: 'loading' });
 export const pendingAtom = atom(false);
 export const actionErrorAtom = atom<string | null>(null);
 const storageAtom = atom<ProgressStorage | null>(null);
+const writeBusyAtom = atom(false);
 const bankAtom = atom((get) => {
   const startup = get(startupAtom);
   return startup.status === 'ready' ? startup.bank : null;
@@ -63,10 +67,11 @@ export const bankInfoAtom = atom<BankInfo | null>((get) => {
 export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) => {
   const storage = get(storageAtom);
   const startup = get(startupAtom);
-  if (!storage || startup.status !== 'ready' || get(pendingAtom)) {
+  if (!storage || startup.status !== 'ready' || get(writeBusyAtom)) {
     throw new Error('Storage is not ready for another save');
   }
   set(pendingAtom, true);
+  set(writeBusyAtom, true);
   set(actionErrorAtom, null);
   try {
     const snapshot = await storage.commit({
@@ -92,6 +97,7 @@ export const commitAtom = atom(null, async (get, set, changes: StorageChange[]) 
     throw error;
   } finally {
     set(pendingAtom, false);
+    set(writeBusyAtom, false);
   }
 });
 
@@ -107,8 +113,93 @@ async function loadSavedBanks(storage: ProgressStorage, snapshot: Snapshot) {
   return banks;
 }
 
-export function createAppSession(openStorage: () => Promise<ProgressStorage>): AppSession {
+export const refreshProgressAtom = atom(null, async (get, set) => {
+  const storage = get(storageAtom);
+  const current = get(startupAtom);
+  if (!storage || current.status !== 'ready') {
+    throw new Error('Progress storage is not ready.');
+  }
+  const snapshot = await storage.load();
+  const banks = await loadSavedBanks(storage, snapshot);
+  const latest = get(startupAtom);
+  if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
+    set(startupAtom, {
+      ...latest,
+      snapshot,
+      banks,
+    });
+  }
+  return snapshot;
+});
+
+export type ProgressMutation = (snapshot: Snapshot) => StorageChange[];
+
+export const mutateProgressAtom = atom(null, async (
+  get,
+  set,
+  build: ProgressMutation,
+  // Heartbeats persist quietly; user actions retain the visible save/error lifecycle.
+  background = false,
+) => {
+  const storage = get(storageAtom);
+  const current = get(startupAtom);
+  if (!storage || current.status !== 'ready' || get(writeBusyAtom)) {
+    throw new Error('Progress storage is busy or unavailable.');
+  }
+  set(writeBusyAtom, true);
+  if (!background) {
+    set(pendingAtom, true);
+    set(actionErrorAtom, null);
+  }
+  try {
+    const loaded = await storage.load();
+    const changes = build(loaded);
+    const snapshot = await storage.commit({
+      expectedRevision: loaded.revision,
+      changes,
+    });
+    const banks = await loadSavedBanks(storage, snapshot);
+    const latest = get(startupAtom);
+    if (latest.status === 'ready' && snapshot.revision >= latest.snapshot.revision) {
+      set(startupAtom, {
+        ...latest,
+        snapshot,
+        banks,
+      });
+    }
+    return snapshot;
+  } catch (error) {
+    set(actionErrorAtom, error instanceof Error ? error.message : 'Progress could not be saved.');
+    throw error;
+  } finally {
+    set(writeBusyAtom, false);
+    if (!background) {
+      set(pendingAtom, false);
+    }
+  }
+});
+
+export namespace createAppSession {
+  export interface Options {
+    practice?: createPracticeController.Options;
+  }
+}
+
+export function createAppSession(
+  openStorage: () => Promise<ProgressStorage>,
+  // Runtime clock injection is session-local, never a persisted application setting.
+  options: createAppSession.Options = {},
+): AppSession {
   const store = createStore();
+  const practice = createPracticeController(store, {
+    read: () => {
+      const current = store.get(startupAtom);
+      return current.status === 'ready' ? current : null;
+    },
+    mutate: (build, background) => store.set(mutateProgressAtom, build, background),
+    refresh: () => store.set(refreshProgressAtom),
+    onError: (message) => { store.set(actionErrorAtom, message); },
+  }, options.practice);
   let storage: ProgressStorage | undefined;
   let unsubscribe: (() => void) | undefined;
   let closed = false;
@@ -155,6 +246,7 @@ export function createAppSession(openStorage: () => Promise<ProgressStorage>): A
 
   return {
     store,
+    practice,
     start() {
       if (closed) {
         return Promise.reject(new Error('Application session is closed'));
@@ -217,6 +309,7 @@ export function createAppSession(openStorage: () => Promise<ProgressStorage>): A
       return initialization;
     },
     close() {
+      practice.dispose();
       closed = true;
       refreshVersion += 1;
       forgetStorage();

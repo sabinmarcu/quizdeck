@@ -59,9 +59,8 @@ not persisted progress: their local databases remain separate.
 
 ## 3. Navigation and information architecture
 
-The top-level order is **Learn**, **Practice** (when implemented), then **Extras**.
-Extras groups **Overview**, **Storage**, and **Help**, in that order, in both apps.
-Until Phase 3 delivers practice, only Learn and Extras appear at the top level.
+The top-level order is **Learn**, **Practice**, then **Extras**. Extras groups
+**Overview**, **Storage**, and **Help**, in that order, in both apps.
 
 - Learn opens the question list, then a question-detail view.
 - Practice opens a run list with **Start new run**, resumable runs, and completed
@@ -71,6 +70,10 @@ Until Phase 3 delivers practice, only Learn and Extras appear at the top level.
   it. Starting another run does not replace existing runs.
 - The CLI and web may use different layouts, but must expose the same actions,
   progress states, and report information.
+- CLI learning and practice share question/answer presentation and key semantics:
+  identical prompt separation, wrapping, cyan answer focus, scrolling, and h/l
+  navigation. Practice-specific sequencing, read-only review, and end-only feedback
+  remain enforced; common design does not disclose practice correctness early.
 
 ### CLI command surface and web launch
 

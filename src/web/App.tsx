@@ -1,4 +1,7 @@
-import { useAtomValue } from 'jotai';
+import {
+  useAtomValue,
+  useSetAtom,
+} from 'jotai';
 import {
   useCallback,
   useEffect,
@@ -11,6 +14,10 @@ import {
   pendingAtom,
   startupAtom,
 } from '../state/application';
+import {
+  leavePracticeAtom,
+  pausePracticeAtom,
+} from '../state/practice';
 import {
   navigationAction,
   nextFocus,
@@ -37,6 +44,7 @@ import {
 } from './App.css';
 import { Panel } from './App.Panel';
 import { Learning } from './Learning';
+import { Practice } from './Practice';
 
 function isEditingTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) {
@@ -55,6 +63,8 @@ export function App({ onReload }: App.Props) {
   const bankInfo = useAtomValue(bankInfoAtom);
   const pending = useAtomValue(pendingAtom);
   const saveError = useAtomValue(actionErrorAtom);
+  const leavePractice = useSetAtom(leavePracticeAtom);
+  const pausePractice = useSetAtom(pausePracticeAtom);
   const [section, setSection] = useState<ShellSection>('Learn');
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState(0);
@@ -64,23 +74,31 @@ export function App({ onReload }: App.Props) {
   const interactive = startup.status === 'ready'
     && (startup.retention === 'persistent' || acknowledgedLocation === startup.location);
 
-  const selectSection = useCallback((index: number) => {
-    if (index === 1) {
+  const selectSection = useCallback(async (index: number) => {
+    const extrasIndex = mainMenuItems.indexOf('Extras');
+    if (index === extrasIndex) {
+      if (!extrasOpen && section === 'Practice' && !(await pausePractice())) {
+        return;
+      }
       setExtrasOpen((open) => !open);
-      setFocusedSection(1);
+      setFocusedSection(extrasIndex);
       return;
     }
-    const nextSection = index === 0 ? 'Learn' : extrasMenuItems[index - 2];
-    if (!nextSection) {
+    const practiceIndex = mainMenuItems.indexOf('Practice');
+    const nextSection = index < mainMenuItems.length
+      ? mainMenuItems[index]
+      : extrasMenuItems[index - mainMenuItems.length];
+    if (!nextSection || nextSection === 'Extras') {
+      return;
+    }
+    if (section === 'Practice' && index !== practiceIndex && !(await leavePractice())) {
       return;
     }
     setSection(nextSection);
+    setExtrasOpen(false);
     setFocusedSection(index);
-    if (nextSection === 'Learn') {
-      setExtrasOpen(false);
-    }
-    buttons.current[index]?.focus();
-  }, []);
+    requestAnimationFrame(() => { buttons.current[index]?.focus(); });
+  }, [extrasOpen, leavePractice, pausePractice, section]);
 
   const moveFocus = useCallback((nextAction: NavigationAction) => {
     const count = mainMenuItems.length + (extrasOpen ? extrasMenuItems.length : 0);
@@ -89,10 +107,11 @@ export function App({ onReload }: App.Props) {
     buttons.current[next]?.focus();
   }, [extrasOpen, focusedSection]);
 
-  const handleKey = useCallback((event: KeyboardEvent) => {
+  const handleKey = useCallback(async (event: KeyboardEvent) => {
     const menuTarget = event.target instanceof Element
       && event.target.closest('[data-app-navigation]') !== null;
-    if (!interactive || (section === 'Learn' && !extrasOpen && !menuTarget)
+    if (!interactive || (section === 'Practice' && !extrasOpen && !menuTarget)
+      || (section === 'Learn' && !extrasOpen && !menuTarget)
       || isEditingTarget(event.target) || event.isComposing) {
       return;
     }
@@ -128,38 +147,39 @@ export function App({ onReload }: App.Props) {
           top: (nextAction === 'pageDown' ? 1 : -1) * (window.innerHeight / 2),
           behavior: 'instant',
         });
-
         break;
       }
       case 'help': {
+        if (section === 'Practice' && !(await leavePractice())) {
+          return;
+        }
+        const helpIndex = mainMenuItems.length + extrasMenuItems.indexOf('Help');
         setExtrasOpen(true);
         setSection('Help');
-        setFocusedSection(4);
-        requestAnimationFrame(() => { buttons.current[4]?.focus(); });
-
+        setFocusedSection(helpIndex);
+        requestAnimationFrame(() => { buttons.current[helpIndex]?.focus(); });
         break;
       }
       case 'back': {
         if (extrasOpen) {
           setExtrasOpen(false);
-          setFocusedSection(1);
-          buttons.current[1]?.focus();
+          const extrasIndex = mainMenuItems.indexOf('Extras');
+          setFocusedSection(extrasIndex);
+          buttons.current[extrasIndex]?.focus();
         } else {
-          selectSection(0);
+          await selectSection(mainMenuItems.indexOf('Learn'));
         }
-
         break;
       }
       case 'activate': {
-        selectSection(focusedSection);
-
+        await selectSection(focusedSection);
         break;
       }
       default: {
         moveFocus(nextAction);
       }
     }
-  }, [interactive, extrasOpen, focusedSection, moveFocus, section, selectSection]);
+  }, [extrasOpen, focusedSection, interactive, leavePractice, moveFocus, section, selectSection]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKey);
@@ -219,51 +239,63 @@ export function App({ onReload }: App.Props) {
       </header>
       <nav aria-label="Application navigation" data-app-navigation>
         <div className={tabList}>
-          <button
-            ref={(element) => { buttons.current[0] = element; }}
-            aria-pressed={section === 'Learn'}
-            className={tab}
-            type="button"
-            onFocus={() => { setFocusedSection(0); }}
-            onClick={() => { selectSection(0); }}
-          >
-            Learn
-          </button>
-          <button
-            ref={(element) => { buttons.current[1] = element; }}
-            aria-expanded={extrasOpen}
-            aria-controls="extras-menu"
-            className={tab}
-            type="button"
-            onFocus={() => { setFocusedSection(1); }}
-            onClick={() => { selectSection(1); }}
-          >
-            Extras
-          </button>
-        </div>
-        {extrasOpen && (
-          <nav id="extras-menu" aria-label="Extras" className={extrasMenu}>
-            {extrasMenuItems.map((item, index) => (
+          {mainMenuItems.map((item, index) => {
+            const isExtras = item === 'Extras';
+            return (
               <button
-                ref={(element) => { buttons.current[index + 2] = element; }}
-                aria-pressed={section === item}
+                ref={(element) => { buttons.current[index] = element; }}
+                aria-controls={isExtras ? 'extras-menu' : undefined}
+                aria-expanded={isExtras ? extrasOpen : undefined}
+                aria-pressed={isExtras ? extrasOpen : section === item}
                 className={tab}
                 key={item}
                 type="button"
-                onFocus={() => { setFocusedSection(index + 2); }}
-                onClick={() => { selectSection(index + 2); }}
+                onFocus={() => { setFocusedSection(index); }}
+                onClick={async () => { await selectSection(index); }}
               >
                 {item}
               </button>
-            ))}
+            );
+          })}
+        </div>
+        {extrasOpen && (
+          <nav id="extras-menu" aria-label="Extras" className={extrasMenu}>
+            {extrasMenuItems.map((item, index) => {
+              const buttonIndex = mainMenuItems.length + index;
+              return (
+                <button
+                  ref={(element) => { buttons.current[buttonIndex] = element; }}
+                  aria-pressed={section === item}
+                  className={tab}
+                  key={item}
+                  type="button"
+                  onFocus={() => { setFocusedSection(buttonIndex); }}
+                  onClick={async () => { await selectSection(buttonIndex); }}
+                >
+                  {item}
+                </button>
+              );
+            })}
           </nav>
         )}
       </nav>
       {pending && <output className={status}>Saving progress…</output>}
       {saveError && <p className={error} role="alert">{saveError}</p>}
-      {section === 'Learn'
-        ? <Learning keyboardEnabled={!extrasOpen} onExit={() => { selectSection(0); }} />
-        : <Panel section={section} startup={startup} bankInfo={bankInfo} />}
+      {section === 'Learn' && (
+        <Learning
+          keyboardEnabled={!extrasOpen}
+          onExit={async () => { await selectSection(mainMenuItems.indexOf('Learn')); }}
+        />
+      )}
+      {section === 'Practice' && (
+        <Practice
+          keyboardEnabled={!extrasOpen}
+          onExit={async () => { await selectSection(mainMenuItems.indexOf('Learn')); }}
+        />
+      )}
+      {section !== 'Learn' && section !== 'Practice' && (
+        <Panel section={section} startup={startup} bankInfo={bankInfo} />
+      )}
     </main>
   );
 }

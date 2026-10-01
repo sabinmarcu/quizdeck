@@ -1,13 +1,14 @@
 # claude-certification
 
 React + TypeScript application with React DOM/Vite and an Ink terminal interface.
-Phases 1 and 2 are implemented: validated question data, transactional local
-persistence, shared Jotai state, Clipanion commands, and searchable learning in
-both interfaces. Practice runs and timing remain reserved for Phase 3.
+Phases 1–3 are implemented: transactional local persistence, shared Jotai state,
+Clipanion launch commands, searchable learning, and persisted/timed practice runs
+in both interfaces. Phase 4 covers the remaining cross-platform delivery matrix.
 
 [Application vision](docs/planning/vision.md) ·
 [Phase 1](docs/planning/01-foundations-and-launch.md) ·
 [Phase 2](docs/planning/02-learning-mode.md) ·
+[Phase 3](docs/planning/03-practice-mode.md) ·
 [Remaining implementation phases](docs/planning/vision.md#12-phased-implementation-plan)
 
 ## Development and launch
@@ -38,13 +39,12 @@ source files and the SQLite database are not web endpoints.
 
 ## Shell controls
 
-The top-level order is **Learn**, then **Extras**. Extras contains **Overview**,
-**Storage**, and **Help**, in that order. Practice will be inserted after Learn
-when its workflow is implemented; no placeholder menu entry is shown.
+The top-level order is **Learn**, **Practice**, then **Extras**. Extras contains
+**Overview**, **Storage**, and **Help**, in that order.
 
 - `j/k`, `h/l`, or arrows move menu focus; **Enter** opens the focused item.
 - `gg`/Home and `G`/End focus the first and last items in the current menu.
-- `?` opens Extras → Help outside learning; learning retains its contextual help.
+- `?` opens Extras → Help in menus; learning and practice retain contextual help.
   Escape closes Extras or returns to the parent/menu focus; Ctrl-d/u scrolls.
 - CLI: `q` or Ctrl-C exits; `r` retries after a storage error.
 - Web: Tab, click, and touch work alongside shortcuts. Text editing and composition
@@ -102,6 +102,62 @@ the application before trying again.
 
 Query, filter, and preferred list row are retained within the application session.
 Permanent answer/status records survive application restarts.
+
+## Practice mode
+
+Open **Practice** and start a new run or resume/review an existing one. Each new
+run saves a randomized order of **60 distinct questions** before presenting its
+first question. Runs are independent; starting another does not replace history.
+
+Activate an answer once with a choice button, Enter, or a–d/1–4. A successful
+transaction records the answer and advances to the next unanswered question.
+Earlier questions can be inspected with h/l or previous/next controls, showing
+the recorded choice read-only. Future questions cannot be skipped, and neither
+correctness, explanations, a running score, nor dataset-ID mapping is shown early.
+
+Answer 60 commits completion and opens the saved report immediately. Reports
+contain all 60 questions in practice order, the **practice position → dataset ID**
+mapping, selected/correct choices, outcomes, and source explanations. Correct
+statuses/choices are green and incorrect ones red, with textual labels. Completed
+runs and results are immutable and remain reviewable after restarting.
+
+CLI learning and practice use the **same question renderer, spacing, inline cyan
+focus marker, wrapping, scrolling, and question key map**. Practice run progress
+and elapsed time appear above the question, not as a second instruction block.
+The shared presentation is also used for questions in completed CLI reports.
+Blank lines separate the question heading from its description and the answer
+block from interface hints in both CLI modes.
+
+- History: j/k focuses actions/runs, Enter opens, n starts a run, gg/G reaches ends.
+- Questions: j/k focuses an unanswered choice or reads read-only content;
+  h/l or left/right moves through available questions. The last available question
+  is the single next unanswered question; earlier answers are read-only. There is
+  no separate jump-to-unanswered shortcut.
+- p pauses/resumes. Escape returns from a question/report to practice history;
+  from history, Escape returns to the application menu/learning section.
+- Web also offers named buttons, native focus navigation, help, and pointer/touch.
+- Enhanced terminal key-event reporting suppresses repeat events. Legacy terminals
+  cannot report releases: before reusing the **same** answer shortcut on the next
+  question, move choice focus with j/k, or use a different equivalent shortcut
+  (a and 1 both select the first choice). This prevents a held key from answering
+  multiple immutable questions; no extra submit/confirmation step is introduced.
+
+Only **active practice intervals** are timed. Reading and earlier-answer review
+count; manual pauses, leaving practice, completed reports, and time between sessions
+do not. Web hide/blur/Extras pauses automatically and resumes only for an active,
+visible, focused practice view; a manual pause stays paused. CLI q/Ctrl-C/SIGTERM
+save/pause before exit. On POSIX hosts, Ctrl-Z/SIGTSTP also releases Ink's screen
+and cursor before suspension, then restores it and eligible practice on SIGCONT.
+
+Time uses a monotonic session clock and durable cumulative milliseconds. Quiet
+one-second checkpoints do not flash user save indicators. A hard crash recovers
+the last committed answers/time without adding the disconnected period; the final
+uncheckpointed tail may be lost. Stale writer leases expire after five seconds,
+so interrupted runs may briefly reject resumption rather than allowing two writers
+to overwrite answers or count time concurrently.
+
+Practice never marks learning completion, and global learning reset preserves all
+practice runs, answers, timings, and reports. SQLite and IndexedDB remain independent.
 
 ## Persistence and state
 

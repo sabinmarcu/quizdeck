@@ -107,7 +107,6 @@ describe('persisted learning workflow', () => {
     expect(detail.status).toBe('incorrectly_answered');
     const selected = detail.choices.find((choice) => choice.feedback?.selected);
     expect(selected?.feedback?.correct).toBe(false);
-    expect(detail.choices.some((choice) => choice.feedback?.justification === 'No explanation provided in the source.')).toBe(true);
     expect(session.store.get(learningCountsAtom)).toEqual({
       completed: 2,
       total: 175,

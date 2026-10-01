@@ -24,7 +24,6 @@ import {
 import {
   answerLearningAtom,
   learningAdjacentAtom,
-  learningAnswerIndex,
   learningCountsAtom,
   learningDetailAtom,
   learningFilterAtom,
@@ -43,22 +42,22 @@ import type {
   LearningRow,
   LearningStatus,
 } from '../state/learning';
+import { InkQuestion } from './InkQuestion';
+import {
+  questionAction,
+  questionContentLines,
+  questionControls,
+} from './question-presentation';
+import type { QuestionLine } from './question-presentation';
 
-interface TerminalLine {
-  text: string;
-  color?: 'green' | 'red';
-  choiceIndex?: number;
-  choiceStart?: boolean;
-}
-
-const statusColors: Record<LearningStatus, TerminalLine['color']> = {
+const statusColors: Record<LearningStatus, QuestionLine['color']> = {
   unanswered: undefined,
   correctly_answered: 'green',
   incorrectly_answered: 'red',
 };
 
 interface ListItem {
-  lines: TerminalLine[];
+  lines: QuestionLine[];
   start: number;
   end: number;
 }
@@ -97,16 +96,6 @@ function nextFilter(current: LearningFilter): LearningFilter {
   return learningFilters[(index + 1) % learningFilters.length]!;
 }
 
-function feedbackResult(selected: boolean, correct: boolean): string {
-  if (selected && correct) {
-    return 'selected · correct';
-  }
-  if (selected) {
-    return 'selected · incorrect';
-  }
-  return correct ? 'correct' : 'incorrect · not selected';
-}
-
 export namespace InkLearning {
   export interface Props { onExit(): void; onQuit(): void }
 }
@@ -139,64 +128,28 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
   const [showHelp, setShowHelp] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const firstGAt = useRef<number | null>(null);
-  const viewportRows = Math.max(1, size.rows - 9);
+  const viewportRows = Math.max(1, size.rows - 10);
   const width = Math.max(1, size.columns - 2);
   const focusedIndex = Math.max(0, rows.findIndex((row) => row.id === focusedId));
   const selectedRow = rows[focusedIndex] ?? null;
   const listItems = useMemo(() => listViewportItems(rows, width), [rows, width]);
-  const listLines = useMemo<TerminalLine[]>(() => listItems.flatMap((item) => [...item.lines, { text: '' }]), [listItems]);
+  const listLines = useMemo<QuestionLine[]>(() => listItems.flatMap((item) => [...item.lines, { text: '' }]), [listItems]);
   const activeListItem = listItems[focusedIndex] ?? null;
   const detailLines = useMemo(() => {
     if (!detail) {
       return [];
     }
-    const answered = detail.choices[0]?.feedback !== null;
-    const source: TerminalLine[] = [
-      {
-        text: `Question ${detail.id} · ${learningStatusLabels[detail.status]}`,
-        color: statusColors[detail.status],
-      },
-      { text: detail.historical ? 'Recorded feedback uses the original saved question version.' : '' },
-      { text: '' },
-      { text: detail.description },
-      { text: ' ' },
-      { text: ' ' },
-      ...detail.choices.flatMap((choice, index): TerminalLine[] => {
-        const label = String.fromCodePoint(65 + index);
-        if (!choice.feedback) {
-          return [{
-            text: `  ${label}. ${choice.text}`,
-            choiceIndex: index,
-          }, { text: '' }];
-        }
-        const color = choice.feedback.correct ? 'green' : 'red';
-        const result = feedbackResult(choice.feedback.selected, choice.feedback.correct);
-        return [
-          {
-            text: `${label}. ${choice.text} [${result}]`,
-            color,
-          },
-          {
-            text: `   Explanation: ${choice.feedback.justification}`,
-            color,
-          },
-          { text: '' },
-        ];
-      }),
-      ...(answered
-        ? [{
-          text: 'This answer is saved. Reset all learning progress to answer this question again.',
-          color: statusColors[detail.status],
-        }]
-        : []),
-    ];
-    return source.flatMap((line) => wrapLines(line.text, width)
-      .map((text, lineIndex) => ({
-        text,
-        color: line.color,
-        choiceIndex: line.choiceIndex,
-        choiceStart: line.choiceIndex !== undefined && lineIndex === 0,
-      })));
+    return questionContentLines({
+      title: `Question ${detail.id} · ${learningStatusLabels[detail.status]}`,
+      statusColor: statusColors[detail.status],
+      description: detail.description,
+      notice: detail.historical ? 'Recorded feedback uses the original saved question version.' : undefined,
+      choices: detail.choices,
+      canAnswer: detail.status === 'unanswered',
+      afterword: detail.status !== 'unanswered'
+        ? 'This answer is saved. Reset all learning progress to answer this question again.'
+        : undefined,
+    }, width);
   }, [detail, width]);
   const detailLimit = Math.max(0, detailLines.length - viewportRows);
   const visibleDetailOffset = Math.min(detailOffset, detailLimit);
@@ -267,6 +220,9 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
   };
 
   useInput((input, key) => {
+    if (key.eventType === 'release' || key.super || key.hyper) {
+      return;
+    }
     if (resetOpen) {
       if (pending) {
         return;
@@ -368,49 +324,47 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
       firstGAt.current = null;
     }
     if (detail) {
-      if (navigation === 'gg' || key.home) {
-        setDetailOffset(0);
+      const interaction = questionAction(navigation, key);
+      if (!interaction) {
         return;
       }
-      if (navigation === 'G' || key.end) {
-        setDetailOffset(detailLimit);
-        return;
-      }
-      if (navigation === 'h' || key.leftArrow) {
-        moveDetail(-1);
-        return;
-      }
-      if (navigation === 'l') {
-        moveDetail(1);
-        return;
-      }
-      if (key.escape) {
-        setQuestionId(null);
-        return;
-      }
-      if (key.rightArrow) {
-        moveDetail(1);
-        return;
-      }
-      if (navigation === 'j' || key.downArrow || navigation === 'k' || key.upArrow) {
-        const step = navigation === 'j' || key.downArrow ? 1 : -1;
-        if (answered) {
-          setDetailOffset(Math.max(0, Math.min(detailLimit, visibleDetailOffset + step)));
-        } else {
-          const next = Math.max(0, Math.min(detail.choices.length - 1, choiceFocus + step));
-          setChoiceFocus(next);
-          const line = detailLines.findIndex((item) => item.choiceIndex === next);
-          setDetailOffset(Math.max(0, Math.min(detailLimit, line)));
+      switch (interaction.type) {
+        case 'boundary': {
+          setDetailOffset(interaction.end ? detailLimit : 0);
+          break;
         }
-        return;
-      }
-      const shortcut = learningAnswerIndex(input);
-      if (shortcut !== null) {
-        answer(shortcut);
-        return;
-      }
-      if (key.return) {
-        answer(answerFocus);
+        case 'question': {
+          moveDetail(interaction.step);
+          break;
+        }
+        case 'back': {
+          setQuestionId(null);
+          break;
+        }
+        case 'choice': {
+          if (answered) {
+            setDetailOffset(Math.max(0, Math.min(
+              detailLimit,
+              visibleDetailOffset + interaction.step,
+            )));
+          } else {
+            const next = Math.max(0, Math.min(
+              detail.choices.length - 1,
+              choiceFocus + interaction.step,
+            ));
+            setChoiceFocus(next);
+            const line = detailLines.findIndex((item) => item.choiceIndex === next);
+            setDetailOffset(Math.max(0, Math.min(detailLimit, line)));
+          }
+          break;
+        }
+        case 'answer': {
+          answer(interaction.index ?? answerFocus);
+          break;
+        }
+        default: {
+          break;
+        }
       }
       return;
     }
@@ -464,10 +418,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
         </Text>
       );
     });
-  const detailControls = [
-    'h/l or left/right previous/next · Esc list · j/k focus or read · ',
-    'Enter/a-d/1-4 answer · r Reset all',
-  ].join('');
+  const detailControls = `${questionControls} · r Reset all`;
   const listControls = [
     '/ search · f filter · c clear · l/right/Enter open · ',
     'h/left leave · r Reset all · ? help · q quit',
@@ -536,27 +487,20 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
       )}
       {!resetOpen && !showHelp && detail && (
         <Box flexDirection="column" marginTop={1}>
-          {detailLines
-            .slice(visibleDetailOffset, visibleDetailOffset + viewportRows)
-            .map((line, index) => {
-              const focused = !answered && line.choiceIndex === answerFocus;
-              const text = focused && line.choiceStart ? `› ${line.text.slice(2)}` : line.text;
-              return (
-                <Text
-                  bold={focused}
-                  color={focused ? 'cyan' : line.color}
-                  key={`${visibleDetailOffset + index}-${line.text}`}
-                >
-                  {text}
-                </Text>
-              );
-            })}
+          <InkQuestion
+            lines={detailLines}
+            offset={visibleDetailOffset}
+            rowCount={viewportRows}
+            focusedChoice={answered ? null : answerFocus}
+          />
         </Box>
       )}
       {pending && <Text>Saving progress…</Text>}
       {actionError && <Text color="red">{`Save error: ${actionError}`}</Text>}
       {!resetOpen && !showHelp && (
-        <Text dimColor>{detail ? detailControls : listControls}</Text>
+        <Box marginTop={detail ? 1 : 0}>
+          <Text dimColor>{detail ? detailControls : listControls}</Text>
+        </Box>
       )}
     </Box>
   );

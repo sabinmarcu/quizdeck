@@ -1,6 +1,6 @@
 # Phase 3 — Practice mode
 
-**Status:** planned, not implemented. **Dependencies:**
+**Status:** implemented. **Dependencies:**
 [Phase 1](01-foundations-and-launch.md) and [Phase 2](02-learning-mode.md).
 
 [Vision](vision.md) · Next: [Phase 4 — Integration and delivery](04-integration-and-delivery.md)
@@ -15,16 +15,16 @@ resumption, or final report to another renderer/phase.
 
 ## Decision gates
 
-Before implementing the affected interactions, confirm or revise the vision's
-proposed defaults:
+The implementation uses the plan's conservative defaults below. Revise this phase
+and the vision before changing their behavior:
 
 - Successful answer selection automatically opens the next unanswered question.
 - Active practice time includes reading and earlier-question inspection; no idle
   cutoff or imposed time limit. Web hide/blur pauses; an open CLI session cannot
   reliably infer every desktop focus change.
 - Reports show correct count/60 and percentage without a pass/fail threshold.
-- Timing checkpoints are proposed at one-second intervals plus progress actions,
-  pause, and completion. Hard-crash recovery uses the last durable checkpoint.
+- Timing checkpoints run at one-second intervals plus progress actions, pause,
+  and completion. Hard-crash recovery uses the last durable checkpoint.
 
 None of these gates changes the settled requirements: immediate answer recording,
 immutable earlier answers, completion upon answering question 60, no early
@@ -146,3 +146,51 @@ read-only review, completed, and reopened with the same persisted report in both
 applications. Timing excludes paused/learning/report periods, answer transactions
 are durable and ownership-safe, and feedback stays concealed until completion.
 Neither renderer nor a required lifecycle/report feature remains deferred.
+
+## Implementation and verification evidence
+
+- `src/data/practice.ts` implements uniform 60-question sampling, sequential/final
+  answer transitions, saved-order report construction, and duration formatting.
+  `src/state/practice-session.ts` owns per-instance monotonic clocks, serialized
+  mutations, five-second ownership leases, quiet checkpoints, pause/resume, and
+  explicit failure handling. `src/state/practice.ts` exposes feedback-safe views,
+  history, and completed-only reports through Jotai.
+- Both Ink and React DOM expose complete Practice between Learn and Extras.
+  Each implements history/new/resume/review, neutral sequential answering,
+  read-only earlier selections, pause/resume, and persisted final reports.
+- Real browser and terminal controls each completed a full randomized 60-question
+  run. The observed reports contained all 60 saved position-to-source-ID mappings,
+  an observed 59/60 result, selected/correct choices, and saved durations. Reopening
+  preserved the sample, frontier, earlier answers, and completed results.
+- Native SQLite/IndexedDB checks exercised conflicting writers in real processes
+  and browser contexts, ownership handoff, failed writes/final-answer rollback,
+  and explicit retry without premature report display. A killed CLI resumed from
+  its last checkpoint and the same recorded answers/order after lease expiry;
+  disconnected time was not added.
+- Real pause intervals excluded elapsed time; browser native focus/visibility
+  signals were exercised with managed focus emulation disabled. Manual versus
+  automatic pause intent, Extras handoff, and completed-report frozen time were
+  checked. POSIX suspension stopped the process with a visible cursor and a saved
+  paused record; SIGCONT restored the screen/active run, and Ctrl-C exited cleanly.
+- Three-choice questions and source-missing justifications were exercised in
+  actual question/report surfaces. Learning reset preserved all practice records,
+  timing and bank snapshots; practice left learning completion untouched.
+- The requested CLI design parity is implemented by `InkQuestion.tsx` and
+  `question-presentation.ts`: one prompt/answer layout, two-line separation,
+  wrapping, cyan inline focus, footer key map, and shared question actions.
+  Actual rendered bodies for the same question were identical in both modes;
+  focus alone recorded no answer, and prior practice choices remained neutral,
+  read-only, and without correctness/justifications until completion.
+- Review corrections covered rejected-busy leave without a half-paused run,
+  background checkpoints without flashing save/error resets, held answer keys,
+  proper terminal suspension ownership, rounded web score display, paused-key
+  bounds, and synchronous session disposal on pagehide. An Ink auto-detection
+  replay of early input was reproduced and avoided with synchronous protocol
+  requests; legacy terminals use explicit shortcut re-arming rather than a
+  timing heuristic that could record a delayed repeat.
+- 66 colocated Vitest tests passed, with native SQLite transactions and injected
+  clocks proving accumulation, wall-clock independence, finalization, ownership,
+  immutable review and report ordering. Typecheck, ESLint fixing checks, both
+  builds, and immutable Yarn installation passed. AI managed status is current.
+- Runtime proof is Linux/Chromium; Windows and Safari runtime validation remain
+  Phase 4. Existing shared-ESLint peer and Vite large-chunk warnings remain.
