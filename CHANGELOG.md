@@ -1,5 +1,9 @@
 # Unreleased
 
+### Documentation
+
+* Reduce product vision to a general mission statement and simplify documentation navigation.
+
 ### Bug Fixes
 
 * Keep development toolchain pins in `.prototools` rather than the published manifest; move Husky to manual `prepare` setup and remove `pinst` so consumer installs do not execute development hooks.

@@ -3,13 +3,10 @@
 Generic question-set study tool built with React + TypeScript, React DOM/Vite,
 and an Ink terminal interface. Both interfaces start with a persisted three-question
 **Demo Set** and support learning, practice, timing, history, reports, and loading
-replacement JSON sets. All three implementation phases are complete, including
-standalone launchers. Native Windows and Safari/iOS Safari verification is waived.
+replacement JSON sets and standalone launchers. Native Windows and Safari/iOS Safari
+verification is waived.
 
-[Application vision](docs/planning/vision.md) ·
-[Phase 1 — Identity and question set](docs/planning/01-identity-and-question-set.md) ·
-[Phase 2 — Loading question sets](docs/planning/02-loading-question-sets.md) ·
-[Phase 3 — Distribution and documentation](docs/planning/03-distribution-and-documentation.md)
+[Product mission](docs/vision.md)
 
 ## Development and launch
 
