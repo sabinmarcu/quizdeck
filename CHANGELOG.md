@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/sabinmarcu/quizdeck/compare/v1.0.1...v1.1.0) (2026-10-02)
+
+
+### Bug Fixes
+
+* **release:** isolate development setup from consumers ([ad0dd0d](https://github.com/sabinmarcu/quizdeck/commit/ad0dd0d65b42978be8ab7cb8a562208f2927cbaa))
+
+
+### Features
+
+* **web:** improve question-set loading and browsing ([8329321](https://github.com/sabinmarcu/quizdeck/commit/8329321beee0aff2d210d1cff5cc36fdb54c9a2a))
+
 # Unreleased
 
 ### Documentation
