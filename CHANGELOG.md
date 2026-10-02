@@ -1,0 +1,17 @@
+# 1.0.0 (2026-10-02)
+
+
+### Bug Fixes
+
+* harden CLI and web integration ([a59b536](https://github.com/sabinmarcu/quizdeck/commit/a59b536018c4b10fcdb7b2eddcfe20c04550b137))
+
+
+### Features
+
+* add persistent learning to both interfaces ([898fa69](https://github.com/sabinmarcu/quizdeck/commit/898fa69a9665353cfd8da3c51066cc6e031f1e09))
+* add persistent practice to both interfaces ([873a70a](https://github.com/sabinmarcu/quizdeck/commit/873a70a756b8f23b2520db0c103ce269bd88cb5d))
+* **distribution:** add standalone Quizdeck launchers ([b286cb3](https://github.com/sabinmarcu/quizdeck/commit/b286cb300f6724e0e0e93c64322f987bde558f13))
+* establish persistent CLI and web application shells ([ac3b744](https://github.com/sabinmarcu/quizdeck/commit/ac3b7449cc415252241542aad60878d6432a4447))
+* **quizdeck:** introduce demo-first study sets ([07b9fac](https://github.com/sabinmarcu/quizdeck/commit/07b9facd253295052d0db98d3627584598b146cf))
+* **quizdeck:** load custom question sets ([602a713](https://github.com/sabinmarcu/quizdeck/commit/602a7131b1378156973fa9332f321b0ff18e2796))
+* **release:** configure trusted npm publishing ([9109c3c](https://github.com/sabinmarcu/quizdeck/commit/9109c3c926f3fa1164d3a5e29645ba5c36bc21b3))

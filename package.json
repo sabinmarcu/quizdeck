@@ -1,6 +1,6 @@
 {
   "name": "@sabinmarcu/quizdeck",
-  "version": "0.0.0-development",
+  "version": "1.0.0",
   "description": "Multiple-choice study CLI with learning, practice, and a local browser interface.",
   "license": "MIT",
   "type": "module",
