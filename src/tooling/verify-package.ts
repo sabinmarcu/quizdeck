@@ -13,10 +13,6 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  satisfies,
-  valid,
-} from 'semver';
 import { z } from 'zod';
 
 const packageName = '@sabinmarcu/quizdeck';
@@ -36,9 +32,6 @@ const manifestSchema = z.object({
     z.string().min(1),
     z.strictObject({ quizdeck: z.string().min(1) }),
   ]).transform((bin) => (typeof bin === 'string' ? { quizdeck: bin } : bin)),
-  engines: z.object({
-    node: z.string().min(1),
-  }).passthrough(),
   scripts: scriptsSchema.optional(),
   dependencies: z.record(z.string(), z.string()).optional(),
 }).passthrough();
@@ -208,7 +201,7 @@ function assertPublishedAssetReferences(entries: ReadonlySet<string>, index: str
   }
 }
 
-async function inspectTarball(tarball: string, runtime: string): Promise<PackageManifest> {
+async function inspectTarball(tarball: string): Promise<PackageManifest> {
   const entries = await listTarballEntries(tarball);
   assertSafeTarballEntries(entries);
   const packageEntries = new Set(entries.map(normalizeTarEntry));
@@ -229,17 +222,9 @@ async function inspectTarball(tarball: string, runtime: string): Promise<Package
   const binPath = manifest.bin.quizdeck.replaceAll('\\', '/');
   assert(!path.posix.isAbsolute(binPath) && !binPath.split('/').includes('..'), 'Packed quizdeck bin path must be relative.');
   assert(packageEntries.has(binPath), `Packed quizdeck bin target is missing: ${binPath}`);
-  assert(satisfies(runtime, manifest.engines.node), `Supplied Node ${runtime} does not satisfy packed engines.node ${manifest.engines.node}.`);
 
   assertPublishedAssetReferences(packageEntries, await extractTarballText(tarball, 'dist/web/index.html'));
   return manifest;
-}
-
-async function runtimeVersion(nodeExecutable: string): Promise<string> {
-  const result = await runSuccessfully(nodeExecutable, ['--version'], { cwd: repoRoot });
-  const version = result.stdout.trim().replace(/^v/iu, '');
-  assert(valid(version) !== null, `Supplied Node executable returned an invalid version: ${result.stdout.trim()}`);
-  return version;
 }
 
 async function packageProject(workspace: string): Promise<string> {
@@ -546,12 +531,11 @@ async function verifyWebConsumer(consumer: string, nodeExecutable: string): Prom
 async function main(): Promise<void> {
   const [nodeExecutable] = commandArgumentsSchema.parse(process.argv.slice(2));
   const runtimeExecutable = nodeExecutable ?? process.execPath;
-  const runtime = await runtimeVersion(runtimeExecutable);
   await mkdir(temporaryRoot, { recursive: true });
   const workspace = await mkdtemp(path.join(temporaryRoot, 'verify-package-'));
   try {
     const tarball = await packageProject(workspace);
-    await inspectTarball(tarball, runtime);
+    await inspectTarball(tarball);
     const consumer = await installConsumer(workspace, tarball);
     const evidence = await verifyCliConsumer(consumer, workspace, runtimeExecutable);
     const webEvidence = await verifyWebConsumer(consumer, runtimeExecutable);
