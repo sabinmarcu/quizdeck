@@ -1,4 +1,7 @@
-import { style } from '@vanilla-extract/css';
+import {
+  keyframes,
+  style,
+} from '@vanilla-extract/css';
 import { theme } from '@sabinmarcu/theme/theme';
 
 export const action = style({
@@ -112,8 +115,46 @@ export const issueList = style({
   paddingInlineStart: theme.grid.l,
 });
 
-export const status = style({
+const notificationPopIn = keyframes({
+  from: {
+    opacity: 0,
+    transform: 'translateY(-100%) scale(0.96)',
+  },
+  to: {
+    opacity: 1,
+    transform: 'translateY(0) scale(1)',
+  },
+});
+
+export const notification = style({
   background: theme.colors.info.muted,
   borderInlineStart: `${theme.grid.xs} solid ${theme.colors.info.base}`,
+  borderInlineEnd: `${theme.grid.xs} solid ${theme.colors.info.base}`,
+  borderBlockStart: `${theme.grid.xs} solid ${theme.colors.info.base}`,
+  borderBlockEnd: `${theme.grid.xs} solid ${theme.colors.info.base}`,
+  borderRadius: theme.grid.s,
+  color: theme.colors.background.text,
+  inlineSize: 'fit-content',
+  inset: 'auto',
+  insetBlockStart: theme.grid.m,
+  insetInlineEnd: theme.grid.m,
+  margin: 0,
+  maxInlineSize: `min(calc(100vw - ${theme.grid.xl}), 32rem)`,
+  overflowWrap: 'anywhere',
   padding: theme.grid.m,
+  pointerEvents: 'none',
+  selectors: {
+    '&:popover-open': {
+      animation: `${notificationPopIn} 200ms ease-out`,
+    },
+  },
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      selectors: {
+        '&:popover-open': {
+          animation: 'none',
+        },
+      },
+    },
+  },
 });

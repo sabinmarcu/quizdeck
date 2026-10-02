@@ -80,6 +80,42 @@ export const select = style({
   },
 });
 
+export const pagination = style({
+  alignItems: 'end',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: theme.grid.m,
+  minInlineSize: 0,
+});
+
+export const itemsPerPage = style({
+  display: 'grid',
+  flex: '0 1 8rem',
+  gap: theme.grid.xs,
+  minInlineSize: 0,
+});
+
+export const pageInput = style([input, {
+  inlineSize: 'min(100%, 8rem)',
+  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+  selectors: {
+    '&[aria-invalid="true"]': {
+      borderColor: theme.colors.error.base,
+    },
+  },
+}]);
+
+export const paginationError = style({
+  color: theme.colors.error.base,
+  margin: 0,
+});
+
+export const paginationStatus = style({
+  flex: '1 1 14rem',
+  margin: 0,
+  minInlineSize: 0,
+});
+
 export const buttonRow = style({
   alignItems: 'end',
   display: 'flex',
@@ -127,6 +163,10 @@ export const secondaryButton = style({
     },
   },
 });
+
+export const pageButton = style([secondaryButton, {
+  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+}]);
 
 export const counts = style({
   display: 'flex',

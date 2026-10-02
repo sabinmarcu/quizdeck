@@ -31,10 +31,10 @@ import {
   error,
   fileInput,
   issueList,
+  notification,
   overlay,
   overlayContent,
   secondaryAction,
-  status,
 } from './LoadQuestionSet.css';
 
 export namespace LoadQuestionSet {
@@ -80,7 +80,30 @@ export function LoadQuestionSet({
   const operationReference = useRef(0);
   const dragDepthReference = useRef(0);
   const busyReference = useRef(false);
+  const notificationReference = useRef<HTMLOutputElement>(null);
+  const successTimerReference = useRef<{
+    identity: string;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
   const busy = phase !== 'idle';
+
+  const clearSuccessTimer = useCallback((identity?: string) => {
+    const successTimer = successTimerReference.current;
+    if (!successTimer || (identity && successTimer.identity !== identity)) {
+      return;
+    }
+    clearTimeout(successTimer.timer);
+    successTimerReference.current = null;
+  }, []);
+
+  const dismissSuccess = useCallback(() => {
+    clearSuccessTimer();
+    const notificationElement = notificationReference.current;
+    if (notificationElement?.matches(':popover-open')) {
+      notificationElement.hidePopover();
+    }
+    setSuccess(null);
+  }, [clearSuccessTimer]);
 
   useEffect(() => {
     onBusyChange(busy);
@@ -91,6 +114,10 @@ export function LoadQuestionSet({
     busyReference.current = false;
     onBusyChange(false);
   }, [onBusyChange]);
+
+  useEffect(() => () => {
+    clearSuccessTimer();
+  }, [clearSuccessTimer]);
 
   useEffect(() => {
     const dialogElement = dialogReference.current;
@@ -105,6 +132,37 @@ export function LoadQuestionSet({
       dialogElement.close();
     }
   }, [confirmation]);
+
+  const visibleSuccess = success?.identity === setIdentity ? success : null;
+
+  useEffect(() => {
+    const notificationElement = notificationReference.current;
+    if (!visibleSuccess || !notificationElement) {
+      return undefined;
+    }
+
+    notificationElement.showPopover();
+    const notificationIdentity = visibleSuccess.identity;
+    const timer = setTimeout(() => {
+      if (successTimerReference.current?.identity === notificationIdentity) {
+        successTimerReference.current = null;
+      }
+      setSuccess((currentSuccess) => (currentSuccess?.identity === notificationIdentity
+        ? null
+        : currentSuccess));
+    }, 5000);
+    successTimerReference.current = {
+      identity: notificationIdentity,
+      timer,
+    };
+
+    return () => {
+      clearSuccessTimer(notificationIdentity);
+      if (notificationElement.matches(':popover-open')) {
+        notificationElement.hidePopover();
+      }
+    };
+  }, [clearSuccessTimer, visibleSuccess]);
 
   const prepareFile = useCallback(async (file: File) => {
     if (!ready) {
@@ -124,7 +182,7 @@ export function LoadQuestionSet({
     setActionError(null);
     setFileError(null);
     setDropError(null);
-    setSuccess(null);
+    dismissSuccess();
     try {
       const parsed = await parseQuestionSet(await file.text(), file.name);
       if (operationReference.current !== operation) {
@@ -146,7 +204,7 @@ export function LoadQuestionSet({
       setPhase('idle');
       busyReference.current = false;
     }
-  }, [ready, setActionError, unavailableMessage]);
+  }, [dismissSuccess, ready, setActionError, unavailableMessage]);
 
   const closeConfirmation = useCallback(() => {
     if (phase === 'committing') {
@@ -308,8 +366,25 @@ export function LoadQuestionSet({
           )}
         </section>
       )}
-      {success && success.identity === setIdentity && (
-        <output className={status}>{success.message}</output>
+      {visibleSuccess && (
+        <output
+          ref={notificationReference}
+          className={notification}
+          popover="manual"
+          aria-live="polite"
+          onToggle={(event) => {
+            if (event.newState !== 'closed') {
+              return;
+            }
+
+            clearSuccessTimer(visibleSuccess.identity);
+            setSuccess((currentSuccess) => (currentSuccess?.identity === visibleSuccess.identity
+              ? null
+              : currentSuccess));
+          }}
+        >
+          {visibleSuccess.message}
+        </output>
       )}
       {dragging && phase === 'idle' && (
         <output className={overlay} aria-live="polite">

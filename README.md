@@ -117,6 +117,15 @@ Open **Learn** in either interface. Search by source question number or descript
 and filter All, Unanswered, Completed, Correctly answered, or Incorrectly answered.
 Completed/total counts remain independent of the current search results.
 
+Web Learn lists show 25 questions per page by default. **First page**, **Previous
+page**, **Next page**, and **Last page** navigate the filtered results. **Items per
+page** accepts positive whole numbers; invalid input keeps the last valid page
+size. When a size change or filtering reduces the page count, the current page
+clamps to the last available page. For example, page 4 of 175 questions at 25 per
+page becomes page 2 at 100 per page. List keyboard shortcuts stay within the
+visible page; returning from detail shows and focuses the current question's page.
+Pagination does not apply to Practice or the CLI.
+
 Opening a question or moving choice focus does not complete it. Activate a choice
 with Enter, a–d/1–4, or a web button; there is no separate submit step. The answer
 and correct/incorrect completion status are persisted together, then correctness
@@ -305,12 +314,16 @@ and cleared learning/run counts, then exit without launching either interface.
 
 ### Web
 
-Drop one JSON file anywhere on the ready application, or use **Extras → Overview
-→ Load question set**. The native file picker and confirmation are keyboard
-operable. Valid files always open a confirmation naming the incoming set and
+Drop one JSON file anywhere on the ready application, or use **Load question set**
+in the footer on Learn, Practice, and every Extras page. Drag-and-drop guidance
+appears above the touch-friendly outlined button, which opens the native file
+picker; the picker and confirmation are keyboard operable.
+Valid files always open a confirmation naming the incoming set and
 explaining that every learning answer and practice run will be deleted. Cancel
-leaves the store unchanged; confirmation commits, returns to Learn, and announces
-success. Multiple-file, non-file, invalid, and pre-ready drops show errors instead
+leaves the store unchanged; confirmation commits and returns to Learn. Success
+appears as a native top-right toast with a polite announcement and disappears
+after five seconds without moving focus. Its pop-in animation respects reduced
+motion. Multiple-file, non-file, invalid, and pre-ready drops show errors instead
 of navigating away. Validation issues are exposed in an alert region.
 
 ### Replacement and naming

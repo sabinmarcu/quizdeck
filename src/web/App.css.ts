@@ -148,6 +148,24 @@ export const action = style({
   },
 });
 
+export const footer = style({
+  borderBlockStart: `1px solid ${theme.colors.primary.muted}`,
+  display: 'grid',
+  gap: theme.grid.s,
+  paddingBlockStart: theme.grid.l,
+});
+
+export const loadAction = style([action, {
+  background: 'transparent',
+  borderInlineStart: `1px solid ${theme.colors.primary.emphasis}`,
+  borderInlineEnd: `1px solid ${theme.colors.primary.emphasis}`,
+  borderBlockStart: `1px solid ${theme.colors.primary.emphasis}`,
+  borderBlockEnd: `1px solid ${theme.colors.primary.emphasis}`,
+  color: theme.colors.background.text,
+  maxInlineSize: '100%',
+  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+}]);
+
 export const list = style({
   display: 'grid',
   gap: theme.grid.s,

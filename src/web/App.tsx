@@ -42,6 +42,8 @@ import {
   tabList,
   tab,
   extrasMenu,
+  footer,
+  loadAction,
 } from './App.css';
 import { Panel } from './App.Panel';
 import { Learning } from './Learning';
@@ -325,18 +327,22 @@ export function App({ onReload }: App.Props) {
                 section={section}
                 startup={startup}
                 setInfo={setInfo}
-                loadQuestionSetControl={(
-                  <button
-                    className={action}
-                    disabled={busy}
-                    type="button"
-                    onClick={() => { fileInputReference.current?.click(); }}
-                  >
-                    Load question set
-                  </button>
-                )}
               />
             )}
+            <footer className={footer}>
+              <p id="load-question-set-help" className={subtitle}>
+                Drag and drop the question set into this window or use the button below.
+              </p>
+              <button
+                aria-describedby="load-question-set-help"
+                className={loadAction}
+                disabled={busy}
+                type="button"
+                onClick={() => { fileInputReference.current?.click(); }}
+              >
+                Load question set
+              </button>
+            </footer>
           </main>
         );
       }}

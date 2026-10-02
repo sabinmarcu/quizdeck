@@ -47,6 +47,12 @@ import {
   feedbackText,
   filter,
   input,
+  itemsPerPage,
+  pageButton,
+  pageInput,
+  pagination,
+  paginationError,
+  paginationStatus,
   question,
   questionHeading,
   questionText,
@@ -58,6 +64,13 @@ import {
   secondaryButton,
   select,
 } from './Learning.css';
+
+const defaultItemsPerPage = 25;
+
+function positiveSafeInteger(value: string) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
 
 const answerKeys = ['a', 'b', 'c', 'd'] as const;
 
@@ -98,12 +111,26 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const resetButtonReference = useRef<HTMLButtonElement>(null);
   const resetDialogReference = useRef<HTMLDialogElement>(null);
   const cancelResetReference = useRef<HTMLButtonElement>(null);
-  const rowIds = useMemo(() => rows.map((row) => row.id), [rows]);
-  const rowIdSet = useMemo(() => new Set(rowIds), [rowIds]);
+  const rowIdSet = useMemo(() => new Set(rows.map((row) => row.id)), [rows]);
+  const [itemsPerPageValue, setItemsPerPageValue] = useState(String(defaultItemsPerPage));
+  const [pageSize, setPageSize] = useState(defaultItemsPerPage);
+  const [currentPage, setCurrentPage] = useState(0);
+  const parsedItemsPerPage = positiveSafeInteger(itemsPerPageValue);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const visiblePage = Math.min(currentPage, totalPages - 1);
+  if (currentPage !== visiblePage) {
+    setCurrentPage(visiblePage);
+  }
+  const pageRows = useMemo(() => rows.slice(
+    visiblePage * pageSize,
+    (visiblePage + 1) * pageSize,
+  ), [pageSize, rows, visiblePage]);
+  const pageRowIdSet = useMemo(() => new Set(pageRows.map((row) => row.id)), [pageRows]);
+  const firstResult = rows.length === 0 ? 0 : (visiblePage * pageSize) + 1;
+  const lastResult = Math.min(rows.length, (visiblePage + 1) * pageSize);
   const helpButtonReference = useRef<HTMLButtonElement>(null);
   const helpDialogReference = useRef<HTMLDialogElement>(null);
   const helpCloseReference = useRef<HTMLButtonElement>(null);
-  const priorRowsReference = useRef<number[]>([]);
   const firstGAt = useRef<number | null>(null);
   const restoreResetFocus = useRef(false);
   const restoreHelpFocus = useRef(false);
@@ -111,17 +138,20 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const [answerFocus, setAnswerFocus] = useState(0);
 
   useEffect(() => {
-    if (questionId !== null || rows.length === 0
-      || (focusedId !== null && rowIdSet.has(focusedId))) {
+    if (questionId !== null) {
       return;
     }
-    const priorIndex = focusedId === null ? 0 : priorRowsReference.current.indexOf(focusedId);
-    const boundedIndex = Math.max(0, Math.min(priorIndex, rows.length - 1));
-    setFocusedId(rows[boundedIndex]?.id ?? null);
-  }, [focusedId, questionId, rowIdSet, rows, setFocusedId]);
-  useEffect(() => {
-    priorRowsReference.current = rowIds;
-  }, [rowIds]);
+    if (pageRows.length === 0) {
+      if (focusedId !== null) {
+        setFocusedId(null);
+      }
+      return;
+    }
+    if (focusedId !== null && pageRowIdSet.has(focusedId)) {
+      return;
+    }
+    setFocusedId(pageRows[0]?.id ?? null);
+  }, [focusedId, pageRowIdSet, pageRows, questionId, setFocusedId]);
 
   useEffect(() => {
     const dialogElement = resetDialogReference.current;
@@ -172,6 +202,13 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
     listButtonReferences.current.get(id)?.focus();
   }, [setFocusedId]);
 
+  const showRowPage = useCallback((id: number) => {
+    const rowIndex = rows.findIndex((row) => row.id === id);
+    if (rowIndex !== -1) {
+      setCurrentPage(Math.floor(rowIndex / pageSize));
+    }
+  }, [pageSize, rows]);
+
   const returnToList = useCallback(() => {
     setQuestionId(null);
     const fallbackId = rowIdSet.has(focusedId ?? -1)
@@ -180,16 +217,31 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
     if (fallbackId === undefined || fallbackId === null) {
       return;
     }
+    showRowPage(fallbackId);
     requestAnimationFrame(() => { focusRow(fallbackId); });
-  }, [focusedId, focusRow, rowIdSet, rows, setQuestionId]);
+  }, [focusedId, focusRow, rowIdSet, rows, setQuestionId, showRowPage]);
 
   const openFocusedQuestion = useCallback((id: number) => {
+    showRowPage(id);
     openQuestion(id);
     setAnswerFocus(0);
     requestAnimationFrame(() => {
       document.querySelector<HTMLElement>('#learning-question')?.focus();
     });
-  }, [openQuestion]);
+  }, [openQuestion, showRowPage]);
+
+  const changeItemsPerPage = useCallback((value: string) => {
+    setItemsPerPageValue(value);
+    const nextPageSize = positiveSafeInteger(value);
+    if (nextPageSize === null) {
+      return;
+    }
+    setPageSize(nextPageSize);
+    setCurrentPage((page) => Math.min(
+      page,
+      Math.max(0, Math.ceil(rows.length / nextPageSize) - 1),
+    ));
+  }, [rows.length]);
 
   const closeResetDialog = useCallback(() => {
     if (pending) {
@@ -248,8 +300,11 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
         if (event.key === 'Escape' && event.target === searchInputReference.current) {
           event.preventDefault();
           searchInputReference.current?.blur();
-          if (focusedId !== null && rowIdSet.has(focusedId)) {
-            focusRow(focusedId);
+          const rowId = focusedId !== null && pageRowIdSet.has(focusedId)
+            ? focusedId
+            : pageRows[0]?.id;
+          if (rowId !== undefined) {
+            focusRow(rowId);
           }
         }
         return;
@@ -291,8 +346,8 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
         if (firstGAt.current !== null && now - firstGAt.current < 800) {
           firstGAt.current = null;
           event.preventDefault();
-          if (questionId === null && rows[0]) {
-            focusRow(rows[0].id);
+          if (questionId === null && pageRows[0]) {
+            focusRow(pageRows[0].id);
           }
           if (questionId !== null && detail?.choices.length) {
             setAnswerFocus(0);
@@ -305,9 +360,11 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
       }
       firstGAt.current = null;
       if (questionId === null) {
-        const currentIndex = focusedId === null ? -1 : rowIds.indexOf(focusedId);
+        const currentIndex = focusedId === null
+          ? -1
+          : pageRows.findIndex((row) => row.id === focusedId);
         if (event.key === 'j' || event.key === 'ArrowDown') {
-          const nextRow = rows[Math.min(rows.length - 1, currentIndex + 1)];
+          const nextRow = pageRows[Math.min(pageRows.length - 1, currentIndex + 1)];
           if (nextRow) {
             event.preventDefault();
             focusRow(nextRow.id);
@@ -315,7 +372,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           return;
         }
         if (event.key === 'k' || event.key === 'ArrowUp') {
-          const previousRow = rows[Math.max(0, currentIndex - 1)];
+          const previousRow = pageRows[Math.max(0, currentIndex - 1)];
           if (previousRow) {
             event.preventDefault();
             focusRow(previousRow.id);
@@ -323,7 +380,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           return;
         }
         if (event.key === 'G' || event.key === 'End') {
-          const lastRow = rows.at(-1);
+          const lastRow = pageRows.at(-1);
           if (lastRow) {
             event.preventDefault();
             focusRow(lastRow.id);
@@ -336,7 +393,9 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           return;
         }
         if (event.key === 'l' || event.key === 'ArrowRight') {
-          const id = focusedId !== null && rowIdSet.has(focusedId) ? focusedId : rows[0]?.id;
+          const id = focusedId !== null && pageRowIdSet.has(focusedId)
+            ? focusedId
+            : pageRows[0]?.id;
           if (id !== undefined) {
             event.preventDefault();
             openFocusedQuestion(id);
@@ -344,7 +403,9 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           return;
         }
         if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
-          const id = focusedId !== null && rowIdSet.has(focusedId) ? focusedId : rows[0]?.id;
+          const id = focusedId !== null && pageRowIdSet.has(focusedId)
+            ? focusedId
+            : pageRows[0]?.id;
           if (id !== undefined) {
             event.preventDefault();
             openFocusedQuestion(id);
@@ -439,15 +500,14 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
     helpOpen,
     moveDetail,
     nextDetailId,
-    previousDetailId,
     onExit,
     openFocusedQuestion,
+    pageRowIdSet,
+    pageRows,
+    previousDetailId,
     questionId,
     resetOpen,
     returnToList,
-    rowIdSet,
-    rowIds,
-    rows,
   ]);
 
   const openResetDialog = () => {
@@ -678,13 +738,84 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           .
         </span>
       </p>
+      <nav className={pagination} aria-label="Question list pagination">
+        <label className={itemsPerPage} htmlFor="learning-items-per-page">
+          <span>Items per page</span>
+          <input
+            aria-describedby={parsedItemsPerPage === null ? 'learning-items-per-page-error' : undefined}
+            aria-invalid={parsedItemsPerPage === null || undefined}
+            className={pageInput}
+            id="learning-items-per-page"
+            inputMode="numeric"
+            max={Number.MAX_SAFE_INTEGER}
+            min={1}
+            step={1}
+            type="number"
+            value={itemsPerPageValue}
+            onChange={(event) => { changeItemsPerPage(event.target.value); }}
+          />
+          {parsedItemsPerPage === null && (
+            <p className={paginationError} id="learning-items-per-page-error">
+              Enter a positive whole number.
+            </p>
+          )}
+        </label>
+        <div className={buttonRow}>
+          <button
+            className={pageButton}
+            disabled={visiblePage === 0}
+            type="button"
+            onClick={() => { setCurrentPage(0); }}
+          >
+            First page
+          </button>
+          <button
+            className={pageButton}
+            disabled={visiblePage === 0}
+            type="button"
+            onClick={() => { setCurrentPage(visiblePage - 1); }}
+          >
+            Previous page
+          </button>
+          <button
+            className={pageButton}
+            disabled={visiblePage === totalPages - 1}
+            type="button"
+            onClick={() => { setCurrentPage(visiblePage + 1); }}
+          >
+            Next page
+          </button>
+          <button
+            className={pageButton}
+            disabled={visiblePage === totalPages - 1}
+            type="button"
+            onClick={() => { setCurrentPage(totalPages - 1); }}
+          >
+            Last page
+          </button>
+        </div>
+        <p className={paginationStatus} aria-live="polite">
+          Page
+          {' '}
+          {visiblePage + 1}
+          {' '}
+          of
+          {' '}
+          {totalPages}
+          .
+          {' '}
+          {rows.length === 0
+            ? 'No matching results.'
+            : `Showing ${firstResult}–${lastResult} of ${rows.length} results.`}
+        </p>
+      </nav>
       {rows.length === 0
         ? (
           <p className={empty}>No questions match this search and answer-status filter.</p>
         )
         : (
           <ol className={results} aria-label="Matching questions">
-            {rows.map((row) => (
+            {pageRows.map((row) => (
               <li key={row.id}>
                 <button
                   ref={(element) => {
