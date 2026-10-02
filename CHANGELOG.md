@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/sabinmarcu/quizdeck/compare/v1.0.0...v1.0.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* remove engines field, set devEngines:node to 24.x ([a8d2a9a](https://github.com/sabinmarcu/quizdeck/commit/a8d2a9a9f47cba0a63143d24f93d82b30a177372))
+
 # 1.0.0 (2026-10-02)
 
 
