@@ -23,18 +23,6 @@
     "registry": "https://registry.npmjs.org/"
   },
   "packageManager": "yarn@4.18.1",
-  "devEngines": {
-    "runtime": {
-      "name": "node",
-      "version": "24.x",
-      "onFail": "error"
-    },
-    "packageManager": {
-      "name": "yarn",
-      "version": "4.18.1",
-      "onFail": "error"
-    }
-  },
   "scripts": {
     "dev": "vite",
     "dev:web": "vite",
@@ -53,11 +41,10 @@
     "pack:verify": "tsx src/tooling/verify-package.ts",
     "release": "semantic-release",
     "release:dry-run": "semantic-release --dry-run",
-    "prepack": "yarn build && pinst --disable",
-    "postpack": "pinst --enable",
+    "prepack": "yarn build",
     "commitlint": "commitlint --edit",
     "lint-staged": "lint-staged",
-    "postinstall": "husky"
+    "prepare": "husky"
   },
   "dependencies": {
     "clipanion": "^4.0.0-rc.4",
@@ -91,7 +78,6 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "pinst": "^3.0.0",
     "semantic-release": "^25.0.9",
     "semver": "^7.7.3",
     "tsx": "^4.23.15",

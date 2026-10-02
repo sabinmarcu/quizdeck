@@ -13,14 +13,18 @@ standalone launchers. Native Windows and Safari/iOS Safari verification is waive
 
 ## Development and launch
 
-Development Node.js **26.10.0** and Yarn **4.18.1** are pinned in `package.json`.
-The packaged CLI supports **Node.js 24.x**. Yarn uses the `node-modules` linker;
-project commands and dependency management use Yarn/Proto, never Corepack.
+Development Node.js **24.18.0** and Yarn **4.18.1** are pinned in `.prototools`.
+This repository deliberately keeps toolchain requirements out of `package.json`:
+neither `engines` nor `devEngines` is published. The packaged CLI is verified on
+**Node.js 24.x**. Yarn uses the `node-modules` linker; project commands and dependency
+management use Yarn/Proto, never Corepack.
 The package is **`@sabinmarcu/quizdeck`**, licensed MIT, and exposes the `quizdeck`
 executable rather than a public library API.
 
 ```sh
+proto install
 yarn install
+yarn prepare         # Enable local Git hooks; Yarn 4 does not run prepare on install
 yarn cli             # Default Clipanion command: interactive Ink; requires a TTY
 yarn cli --help
 yarn dev:web         # Vite development/HMR server
@@ -351,9 +355,11 @@ changelog updates are committed as `chore(release): VERSION [skip ci]`.
 ### Artifact and consumer checks
 
 `yarn pack` builds both interfaces, includes `bin/`, `dist/cli/`, and `dist/web/`,
-and excludes source, local sets, caches, and repository/AI configuration. Husky's
-recommended Yarn publication pattern uses `pinst` to remove the install hook from
-the packed manifest and restore it locally after packing. Consumers do not need
+and excludes source, local sets, caches, `.prototools`, and repository/AI configuration.
+There are no `preinstall`, `install`, or `postinstall` scripts. Husky uses `prepare`,
+which npm does not run when installing a registry package or its tarball; Yarn 4
+contributors run `yarn prepare` manually. Packing does not rewrite the manifest,
+and no `pinst` dependency or hook restoration is needed. Consumers do not need
 Husky, TypeScript, Vite, or semantic-release to install and run the CLI.
 
 ```sh
@@ -430,8 +436,8 @@ protection must permit the configured release commit/tag push. No `NPM_TOKEN` or
 The semantic-release npm plugin invokes its bundled npm internally for versioning
 and publication, matching the other repositories. This is the narrow publication
 implementation exception, not a package-manager change: repository commands remain
-Yarn. `NPM_CONFIG_FORCE=true` is scoped only to the release invocation so those
-subprocesses can operate despite the strict Yarn `devEngines` declaration.
+Yarn. Publication needs no `NPM_CONFIG_FORCE` override because repository-only
+toolchain pins live in `.prototools`, not the published manifest.
 
 ### Prove the first release, then harden access
 
@@ -445,7 +451,8 @@ continue to work under that restriction.
 
 Sources: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 [semantic-release GitHub Actions](https://semantic-release.org/recipes/ci-configurations/github-actions/),
-and [Husky's Yarn publication setup](https://typicode.github.io/husky/how-to.html).
+[npm lifecycle scripts](https://docs.npmjs.com/cli/v11/using-npm/scripts/#life-cycle-scripts),
+and [Husky manual setup](https://typicode.github.io/husky/how-to.html#manual-setup).
 
 
 ## Checks and tooling

@@ -1,5 +1,9 @@
 # Unreleased
 
+### Bug Fixes
+
+* Keep development toolchain pins in `.prototools` rather than the published manifest; move Husky to manual `prepare` setup and remove `pinst` so consumer installs do not execute development hooks.
+
 ### Features
 
 * Add a touch-friendly outlined question-set file picker button and drag-and-drop guidance in the footer on every web page.

@@ -33,6 +33,8 @@ const manifestSchema = z.object({
     z.strictObject({ quizdeck: z.string().min(1) }),
   ]).transform((bin) => (typeof bin === 'string' ? { quizdeck: bin } : bin)),
   scripts: scriptsSchema.optional(),
+  engines: z.unknown().optional(),
+  devEngines: z.unknown().optional(),
   dependencies: z.record(z.string(), z.string()).optional(),
 }).passthrough();
 const sqliteEvidenceSchema = z.object({
@@ -211,7 +213,10 @@ async function inspectTarball(tarball: string): Promise<PackageManifest> {
 
   const manifest = parseManifest(await extractTarballText(tarball, 'package.json'), 'Packed package manifest');
   assert(manifest.private !== true, 'Packed package manifest must not be private.');
-  assert(manifest.scripts?.postinstall === undefined, 'Packed package manifest must not execute postinstall.');
+  for (const hook of ['preinstall', 'install', 'postinstall']) {
+    assert(manifest.scripts?.[hook] === undefined, `Packed package manifest must not execute ${hook}.`);
+  }
+  assert(manifest.engines === undefined && manifest.devEngines === undefined, 'Packed package manifest must not impose repository toolchain requirements.');
   assert(
     Object.keys(manifest.dependencies ?? {}).every((dependency) => (
       !(dependency === 'husky' || dependency === 'semantic-release' || dependency.startsWith('@semantic-release/'))
@@ -229,24 +234,7 @@ async function inspectTarball(tarball: string): Promise<PackageManifest> {
 
 async function packageProject(workspace: string): Promise<string> {
   const tarball = path.join(workspace, 'quizdeck.tgz');
-  const packageBefore = parseManifest(await readFile(path.join(repoRoot, 'package.json'), 'utf8'), 'Repository package manifest');
-  try {
-    await runSuccessfully('yarn', ['pack', '--out', tarball], { cwd: repoRoot });
-  } catch (packError) {
-    try {
-      await runSuccessfully('yarn', ['exec', 'pinst', '--enable'], { cwd: repoRoot });
-    } catch (restoreError) {
-      throw new AggregateError([packError, restoreError], 'Packing failed and pinst could not restore the repository manifest.');
-    }
-    throw packError;
-  }
-
-  const packageAfter = parseManifest(await readFile(path.join(repoRoot, 'package.json'), 'utf8'), 'Repository package manifest after packing');
-  assert(
-    packageAfter.scripts?.postinstall === packageBefore.scripts?.postinstall
-      && packageAfter.scripts?.postinstall !== undefined,
-    'Packing did not restore the repository postinstall script.',
-  );
+  await runSuccessfully('yarn', ['pack', '--out', tarball], { cwd: repoRoot });
   const tarballStats = await stat(tarball);
   assert(tarballStats.isFile() && tarballStats.size > 0, 'yarn pack did not create a tarball.');
   return tarball;
