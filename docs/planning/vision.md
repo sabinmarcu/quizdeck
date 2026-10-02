@@ -243,9 +243,11 @@ Follow the layout Yarn itself ships: the `package.json` `bin` field maps
   directory, and propagate the exit status.
 - `.gitattributes` keeps `bin/quizdeck` LF with the executable bit and the `.cmd`
   file CRLF.
-- Publication to a registry is not part of this vision. The `bin` field declares the
-  package executable; an explicit `quizdeck` package script invokes that Node entry
-  for `yarn run quizdeck` in the private workspace.
+- Registry deployment is prepared for the public MIT package
+  `@sabinmarcu/quizdeck`, using semantic-release and GitHub Actions trusted publishing
+  after a human bootstrap and npm trust configuration. The binary remains `quizdeck`.
+  The `bin` field declares the executable; the `quizdeck` package script invokes the
+  same Node entry for local Yarn use.
 
 | Invocation | Behavior |
 | --- | --- |

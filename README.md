@@ -13,10 +13,11 @@ standalone launchers. Native Windows and Safari/iOS Safari verification is waive
 
 ## Development and launch
 
-Node.js **26.10.0** and Yarn **4.18.1** are pinned in `package.json`. Yarn uses the
-`node-modules` linker; npm and Corepack are not used.
-Standalone execution supports Node.js **26.10.0 or newer**. This package remains
-private: it exposes executable launchers, not a published library API.
+Development Node.js **26.10.0** and Yarn **4.18.1** are pinned in `package.json`.
+The packaged CLI supports **Node.js 24.x**. Yarn uses the `node-modules` linker;
+project commands and dependency management use Yarn/Proto, never Corepack.
+The package is **`@sabinmarcu/quizdeck`**, licensed MIT, and exposes the `quizdeck`
+executable rather than a public library API.
 
 ```sh
 yarn install
@@ -82,8 +83,8 @@ quizdeck.ps1 load .\questions.json --yes
 
 The Node entry also works directly with `node /path/to/quizdeck/bin/quizdeck.js`.
 From the checkout, `yarn run quizdeck` invokes that same entry through a package
-script. No global install, registry publication, or execution-policy changes are
-performed.
+script. The local launchers do not install globally or change execution policies.
+Registry publication is handled separately by the gated release workflow below.
 
 The shell launchers report a missing `node` clearly. When `dist/cli/main.js` is
 missing, the Node entry writes a build hint to stderr and exits 1; other import
@@ -326,6 +327,113 @@ separators and camelCase/acronym boundaries, capitalize each word's first charac
 and preserve its remaining characters. For example, `networkBasics.json` becomes
 **Network Basics**, and `awsIAMRoles.json` becomes **Aws IAM Roles**. An empty name
 becomes **Untitled Set**. Overview shows the name, file source, load time, and counts.
+
+## npm publication and semantic releases
+
+The release setup mirrors `mods` and `foreverwinter-mods`: Conventional Commits on
+`master` determine semantic versions, `CHANGELOG.md` is generated, npm receives the
+package, and GitHub receives a tag/release. Generated manifest, lockfile, and
+changelog updates are committed as `chore(release): VERSION [skip ci]`.
+
+### Artifact and consumer checks
+
+`yarn pack` builds both interfaces, includes `bin/`, `dist/cli/`, and `dist/web/`,
+and excludes source, local sets, caches, and repository/AI configuration. Husky's
+recommended Yarn publication pattern uses `pinst` to remove the install hook from
+the packed manifest and restore it locally after packing. Consumers do not need
+Husky, TypeScript, Vite, or semantic-release to install and run the CLI.
+
+```sh
+yarn lint:fix
+yarn typecheck
+yarn test
+yarn pack:verify /absolute/path/to/node24
+```
+
+The last command packs the real artifact, installs it in an isolated Yarn consumer
+with install scripts enabled, checks Node compatibility, invokes its installed
+binary, and inspects persisted SQLite data. It also checks built web assets and
+starts the fixed-origin host when port 4173 is free; an existing listener is never
+killed or replaced. Temporary files are removed. CI obtains a Node 24 executable
+automatically, while project/release tooling uses the pinned development runtime.
+
+### One-time human bootstrap
+
+The package starts at **`0.0.0-development`**. First commit/push the release
+configuration so `.github/workflows/release.yml` exists on GitHub. The publication
+job stays disabled until the `NPM_TRUSTED_PUBLISHING` repository variable is `true`.
+From the validated checkout, authenticate and publish the real working seed:
+
+```sh
+yarn npm login --scope sabinmarcu --publish --web-login
+yarn npm publish --access public --tag bootstrap
+yarn npm info @sabinmarcu/quizdeck@0.0.0-development --json
+```
+
+Complete authentication and 2FA locally; never share tokens or OTPs. Do not manually
+publish `1.0.0`: the existing Conventional Commit history produces that version as
+the first semantic-release production release, and registry versions are immutable.
+The seed uses `bootstrap`, not the intended production channel. npm may initialize
+`latest` to the sole seed version; the first automated production release replaces it.
+
+This is a conventional bootstrap path, not a requirement to ship an empty boilerplate.
+Current [staged publishing](https://docs.npmjs.com/staged-publishing/) can also create
+a new package with npm's `0.0.0-stage` placeholder. That alternative still needs human
+authentication/approval and is distinct from this direct semantic-release pipeline.
+
+### Configure the npm trusted publisher
+
+After the package exists, open its npm **Settings → Trusted publishing**, choose
+GitHub Actions, and set these exact values:
+
+| Setting | Value |
+| --- | --- |
+| Organization/user | `sabinmarcu` |
+| Repository | `quizdeck` |
+| Workflow filename | `release.yml` — not the full path |
+| GitHub environment | None |
+| Allowed action | **Allow direct publishing with npm publish** |
+
+New trusted publishers default to staged publishing; explicitly allow direct
+publishing because `@semantic-release/npm` invokes the direct publisher. Hosted
+GitHub runners, `id-token: write`, and a supported npm implementation are required.
+The installed plugin bundles a compatible npm implementation. Trusted publication
+automatically generates provenance for this public repository/public package.
+
+Only then enable and trigger publication:
+
+```sh
+gh variable set NPM_TRUSTED_PUBLISHING --repo sabinmarcu/quizdeck --body true
+gh workflow run release.yml --repo sabinmarcu/quizdeck --ref master
+gh run list --repo sabinmarcu/quizdeck --workflow release.yml --branch master
+```
+
+Subsequent pushes to `master` release automatically when quality and packed-consumer
+checks pass and commits warrant a version. PRs/forks cannot publish. Only the release
+job receives write/OIDC permissions; full history and tags are checked out. Branch
+protection must permit the configured release commit/tag push. No `NPM_TOKEN` or
+`NODE_AUTH_TOKEN` is supplied by this workflow.
+
+The semantic-release npm plugin invokes its bundled npm internally for versioning
+and publication, matching the other repositories. This is the narrow publication
+implementation exception, not a package-manager change: repository commands remain
+Yarn. `NPM_CONFIG_FORCE=true` is scoped only to the release invocation so those
+subprocesses can operate despite the strict Yarn `devEngines` declaration.
+
+### Prove the first release, then harden access
+
+Confirm an actual workflow succeeds, the logs show npm OIDC authentication/token
+exchange, `v1.0.0` and a GitHub release exist, and the registry exposes the expected
+version with `latest` and a provenance attestation. A local dry-run only validates
+configuration/version analysis; it does not prove OIDC or publish anything.
+After that proof, select **Require two-factor authentication and disallow tokens**
+in npm publishing access and revoke any temporary publish tokens. Trusted publishers
+continue to work under that restriction.
+
+Sources: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
+[semantic-release GitHub Actions](https://semantic-release.org/recipes/ci-configurations/github-actions/),
+and [Husky's Yarn publication setup](https://typicode.github.io/husky/how-to.html).
+
 
 ## Checks and tooling
 

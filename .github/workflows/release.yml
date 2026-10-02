@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+
+jobs:
+  quality:
+    name: Quality (${{ matrix.command }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        command:
+          - lint
+          - typecheck
+          - test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup project
+        uses: ./.github/actions/setup
+
+      - name: Run ${{ matrix.command }}
+        run: yarn ${{ matrix.command }}
+
+  packaged-consumer:
+    name: Packaged consumer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node 24 consumer runtime
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Capture Node 24 executable
+        id: node-24
+        shell: bash
+        run: echo "path=$(node -p 'process.execPath')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup project
+        uses: ./.github/actions/setup
+
+
+      - name: Verify packaged consumer
+        run: yarn pack:verify "${{ steps.node-24.outputs.path }}"
+
+  release:
+    if: >-
+      ${{ github.repository == 'sabinmarcu/quizdeck' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.NPM_TRUSTED_PUBLISHING == 'true' }}
+    needs:
+      - quality
+      - packaged-consumer
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup project
+        uses: ./.github/actions/setup
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_FORCE: "true"
+        run: yarn release

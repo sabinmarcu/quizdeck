@@ -6,7 +6,7 @@ files:
     ownerType: baseline
     ownerVersion: "1"
   - path: .ai/AGENTS.md
-    hash: 2ea9df552ce751f4ec6f300b113b5e74830cb04263101618c99b143178befe25
+    hash: 1203d2ded71e4f390af0dcfadfc04224f259f2e138601a68281d92ccae698e0c
     ownerId: baseline/entrypoint
     ownerType: baseline
     ownerVersion: "1"
@@ -55,6 +55,16 @@ files:
     ownerId: arch/node-package
     ownerType: module
     ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-package-library/node-package-library-architecture.instructions.md
+    hash: 937237d0a9d3a13b0410887fc5863ff23baab81ff6781e834961f8700dae8722
+    ownerId: arch/node-package-library
+    ownerType: module
+    ownerVersion: 0.1.0
+  - path: .github/instructions/shared/node-library/node-library-architecture.instructions.md
+    hash: 8ae849a1ec113dabe179e7e1e9b8497f085e10345d2a606a39e781d63908c6c8
+    ownerId: arch/node-library
+    ownerType: module
+    ownerVersion: 0.1.0
   - path: .github/instructions/shared/commitlint/commitlint-configuration.instructions.md
     hash: cb2579f6461636d3c636c78085f12cf9404b1b92ee22233cda990b2271555967
     ownerId: tooling/commitlint
@@ -78,16 +88,6 @@ files:
   - path: .github/instructions/shared/node-root-package/node-root-package-architecture.instructions.md
     hash: 158662ad8c1c1734400ad31e0fcf8421f0df72f5b9f2c2741ccb3ee337078ffe
     ownerId: arch/node-root-package
-    ownerType: module
-    ownerVersion: 0.1.0
-  - path: .github/instructions/shared/node-package-library/node-package-library-architecture.instructions.md
-    hash: 937237d0a9d3a13b0410887fc5863ff23baab81ff6781e834961f8700dae8722
-    ownerId: arch/node-package-library
-    ownerType: module
-    ownerVersion: 0.1.0
-  - path: .github/instructions/shared/node-library/node-library-architecture.instructions.md
-    hash: 8ae849a1ec113dabe179e7e1e9b8497f085e10345d2a606a39e781d63908c6c8
-    ownerId: arch/node-library
     ownerType: module
     ownerVersion: 0.1.0
   - path: .github/instructions/shared/node-package-application/node-package-application-architecture.instructions.md

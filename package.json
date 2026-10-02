@@ -1,9 +1,26 @@
 {
-  "name": "quizdeck",
-  "private": true,
+  "name": "@sabinmarcu/quizdeck",
+  "version": "0.0.0-development",
+  "description": "Multiple-choice study CLI with learning, practice, and a local browser interface.",
+  "license": "MIT",
   "type": "module",
-  "bin": {
-    "quizdeck": "bin/quizdeck.js"
+  "bin": "bin/quizdeck.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sabinmarcu/quizdeck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sabinmarcu/quizdeck/issues"
+  },
+  "homepage": "https://github.com/sabinmarcu/quizdeck#readme",
+  "files": [
+    "bin",
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "packageManager": "yarn@4.18.1",
   "engines": {
@@ -36,18 +53,19 @@
     "lint": "eslint src bin/*.js *.config.{js,mjs,ts}",
     "lint:fix": "eslint src bin/*.js *.config.{js,mjs,ts} --fix",
     "test": "vitest run",
+    "pack:verify": "tsx src/tooling/verify-package.ts",
+    "release": "semantic-release",
+    "release:dry-run": "semantic-release --dry-run",
+    "prepack": "yarn build && pinst --disable",
+    "postpack": "pinst --enable",
     "commitlint": "commitlint --edit",
     "lint-staged": "lint-staged",
     "postinstall": "husky"
   },
   "dependencies": {
-    "@sabinmarcu/theme": "1.2.4",
-    "@vanilla-extract/css": "^1.21.2",
-    "@vanilla-extract/dynamic": "^2.1.5",
     "clipanion": "^4.0.0-rc.4",
     "ink": "^7.1.1",
     "jotai": "^3.0.1",
-    "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "wrap-ansi": "^10.0.2",
@@ -57,10 +75,16 @@
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@sabinmarcu/eslint-config": "3.4.3",
+    "@sabinmarcu/theme": "1.2.4",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/git": "^11.0.1",
     "@types/eslint-plugin-jsx-a11y": "^6",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/semver": "^7.7.0",
+    "@vanilla-extract/css": "^1.21.2",
+    "@vanilla-extract/dynamic": "^2.1.5",
     "@vanilla-extract/vite-plugin": "^5.2.6",
     "@vitejs/plugin-react": "^6.1.1",
     "esbuild": "^0.28.2",
@@ -70,6 +94,9 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
+    "pinst": "^3.0.0",
+    "semantic-release": "^25.0.9",
+    "semver": "^7.7.3",
     "tsx": "^4.23.15",
     "typescript": "~6.0.0",
     "typescript-eslint": "^8.71.0",

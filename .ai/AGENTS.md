@@ -22,13 +22,13 @@ Before working in this repository, open, read, and follow every linked file belo
 - [arch/node-package: node-package-proto.instructions.md](../.github/instructions/shared/node-package/node-package-proto.instructions.md)
 - [arch/node-package: node-package-eslint-prettier-policy.instructions.md](../.github/instructions/shared/node-package/node-package-eslint-prettier-policy.instructions.md)
 - [arch/node-package: node-package-editor-prettier-disable.instructions.md](../.github/instructions/shared/node-package/node-package-editor-prettier-disable.instructions.md)
+- [arch/node-package-library: node-package-library-architecture.instructions.md](../.github/instructions/shared/node-package-library/node-package-library-architecture.instructions.md)
+- [arch/node-library: node-library-architecture.instructions.md](../.github/instructions/shared/node-library/node-library-architecture.instructions.md)
 - [tooling/commitlint: commitlint-configuration.instructions.md](../.github/instructions/shared/commitlint/commitlint-configuration.instructions.md)
 - [tooling/eslint: eslint-configuration.instructions.md](../.github/instructions/shared/linting/eslint-configuration.instructions.md)
 - [tooling/husky: husky-configuration.instructions.md](../.github/instructions/shared/husky/husky-configuration.instructions.md)
 - [tooling/lint-staged: lint-staged-configuration.instructions.md](../.github/instructions/shared/lint-staged/lint-staged-configuration.instructions.md)
 - [arch/node-root-package: node-root-package-architecture.instructions.md](../.github/instructions/shared/node-root-package/node-root-package-architecture.instructions.md)
-- [arch/node-package-library: node-package-library-architecture.instructions.md](../.github/instructions/shared/node-package-library/node-package-library-architecture.instructions.md)
-- [arch/node-library: node-library-architecture.instructions.md](../.github/instructions/shared/node-library/node-library-architecture.instructions.md)
 - [arch/node-package-application: node-package-application-architecture.instructions.md](../.github/instructions/shared/node-package-application/node-package-application-architecture.instructions.md)
 - [arch/node-tool: node-tool-architecture.instructions.md](../.github/instructions/shared/node-tool/node-tool-architecture.instructions.md)
 - [arch/react: react-architecture.instructions.md](../.github/instructions/shared/react/react-architecture.instructions.md)
@@ -67,13 +67,13 @@ Before working in this repository, open, read, and follow every linked file belo
 - `.github/agents/local/`
 - `.ai-local/`
 - `.github/instructions/local/node-package/`
+- `.github/instructions/local/node-package-library/`
+- `.github/instructions/local/node-library/`
 - `.github/instructions/local/commitlint/`
 - `.github/instructions/local/linting/`
 - `.github/instructions/local/husky/`
 - `.github/instructions/local/lint-staged/`
 - `.github/instructions/local/node-root-package/`
-- `.github/instructions/local/node-package-library/`
-- `.github/instructions/local/node-library/`
 - `.github/instructions/local/node-package-application/`
 - `.github/instructions/local/node-tool/`
 - `.github/instructions/local/react/`

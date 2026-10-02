@@ -2,6 +2,7 @@ version: 2
 createdAt: 2026-09-30T20:33:52.544Z
 presets: []
 modules:
+  - arch/node-library
   - arch/node-package
   - arch/node-root-package
   - arch/node-tool
