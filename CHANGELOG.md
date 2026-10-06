@@ -19,6 +19,7 @@
 * Make learning question cards fill the content container, place wide-screen navigation arrows in the outer gutters, and use a touch-sized navigation row on narrower screens. Move secondary actions below the card and above the footer.
 * Shuffle Practice answer choices consistently across both interfaces, saved-run resumes, and reports while retaining canonical answer identity and scoring.
 * Add tall sticky learning-list pagination rails in the outer gutters, with touch-sized controls on narrower screens. Replace inline navigation buttons with a centered page-number input, right-align page status, and preserve filtering, page-size clamping, and detail-return context.
+* Add a web learning-list shortcut to the first unanswered question without changing search, filters, or existing navigation behavior.
 
 ## [1.0.1](https://github.com/sabinmarcu/quizdeck/compare/v1.0.0...v1.0.1) (2026-10-02)
 

@@ -144,6 +144,12 @@ Open **Learn** in either interface. Search by source question number or descript
 and filter All, Unanswered, Completed, Correctly answered, or Incorrectly answered.
 Completed/total counts remain independent of the current search results.
 
+In the web learning list, **Resume learning** opens the lowest-numbered unanswered
+question in the loaded set, independently of the current search, status filter,
+or list page. It leaves search and filter values unchanged and reuses the existing
+question navigation and back-to-list behavior. The button is disabled when every
+question is answered and becomes available again after resetting learning progress.
+
 Web Learn lists show 25 questions per page by default. **First page**, **Previous
 page**, **Next page**, and **Last page** navigate the filtered results. On wide
 screens, first/previous and next/last form tall sticky rails in the outer gutters,

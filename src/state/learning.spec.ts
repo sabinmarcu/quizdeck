@@ -26,6 +26,7 @@ import {
 import type { AppSession } from './application';
 import {
   answerLearningAtom,
+  firstUnansweredLearningQuestionIdAtom,
   learningAnswerIndex,
   learningAdjacentAtom,
   learningCountsAtom,
@@ -164,6 +165,45 @@ describe('persisted learning workflow', () => {
     });
     session.store.set(learningQueryAtom, ready().set.questions[0]!.answers[0]!.justification);
     expect(session.store.get(learningRowsAtom).some((row) => row.id === 1)).toBe(false);
+  });
+
+  it('resumes by question number across filters, skips both saved outcomes, and updates after reset', async () => {
+    const fixture = await createFixtureSet(8);
+    const reversedSet = await createQuestionSet(fixture.questions.toReversed(), {
+      name: fixture.name,
+      source: fixture.source,
+      loadedAt: fixture.loadedAt + 1,
+    });
+    await session.store.set(commitAtom, [{
+      kind: 'replaceSet',
+      set: reversedSet,
+    }]);
+    await record(1, true);
+    await record(3, false);
+    session.store.set(learningQueryAtom, '8');
+    session.store.set(learningFilterAtom, 'completed');
+    expect(session.store.get(learningRowsAtom)).toEqual([]);
+    expect(session.store.get(firstUnansweredLearningQuestionIdAtom)).toBe(2);
+    const before = ready().snapshot;
+    session.store.set(
+      openLearningQuestionAtom,
+      session.store.get(firstUnansweredLearningQuestionIdAtom)!,
+    );
+    expect(session.store.get(learningDetailAtom)?.id).toBe(2);
+    expect(session.store.get(learningQueryAtom)).toBe('8');
+    expect(session.store.get(learningFilterAtom)).toBe('completed');
+    expect(ready().snapshot).toEqual(before);
+    await record(2, false);
+    expect(session.store.get(firstUnansweredLearningQuestionIdAtom)).toBe(4);
+    for (const id of [4, 5, 6, 7, 8]) {
+      await record(id, true);
+    }
+    expect(session.store.get(firstUnansweredLearningQuestionIdAtom)).toBeNull();
+    session.store.set(learningResetOpenAtom, true);
+    expect(await session.store.set(resetLearningAtom)).toBe(true);
+    expect(session.store.get(firstUnansweredLearningQuestionIdAtom)).toBe(1);
+    expect(session.store.get(learningQueryAtom)).toBe('8');
+    expect(session.store.get(learningFilterAtom)).toBe('completed');
   });
 
   it('preserves list context and restores saved feedback after a new application session', async () => {

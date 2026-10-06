@@ -61,6 +61,20 @@ const answersAtom = atom((get) => {
     ? startup.snapshot.learning.map((answer) => [answer.questionId, answer])
     : []);
 });
+export const firstUnansweredLearningQuestionIdAtom = atom<number | null>((get) => {
+  const startup = get(startupAtom);
+  if (startup.status !== 'ready') {
+    return null;
+  }
+  const answers = get(answersAtom);
+  let firstId: number | null = null;
+  for (const question of startup.set.questions) {
+    if (!answers.has(question.id) && (firstId === null || question.id < firstId)) {
+      firstId = question.id;
+    }
+  }
+  return firstId;
+});
 export const learningRowsAtom = atom<LearningRow[]>((get) => {
   const startup = get(startupAtom);
   if (startup.status !== 'ready') {

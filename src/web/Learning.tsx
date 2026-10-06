@@ -16,6 +16,7 @@ import {
 } from '../state/application';
 import {
   answerLearningAtom,
+  firstUnansweredLearningQuestionIdAtom,
   learningAdjacentAtom,
   learningAnswerIndex,
   learningCountsAtom,
@@ -108,6 +109,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const [resetOpen, setResetOpen] = useAtom(learningResetOpenAtom);
   const rows = useAtomValue(learningRowsAtom);
   const countsValue = useAtomValue(learningCountsAtom);
+  const firstUnansweredId = useAtomValue(firstUnansweredLearningQuestionIdAtom);
   const detail = useAtomValue(learningDetailAtom);
   const { previous: previousDetailId, next: nextDetailId } = useAtomValue(learningAdjacentAtom);
   const pending = useAtomValue(pendingAtom);
@@ -755,6 +757,18 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             onClick={openResetDialog}
           >
             Reset all learning progress
+          </button>
+          <button
+            className={button}
+            disabled={firstUnansweredId === null}
+            type="button"
+            onClick={() => {
+              if (firstUnansweredId !== null) {
+                openFocusedQuestion(firstUnansweredId);
+              }
+            }}
+          >
+            Resume learning
           </button>
         </div>
       </div>
