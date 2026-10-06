@@ -528,8 +528,10 @@ editor/typecheck, and source build scope.
 
 Web styles use Vanilla Extract, `@sabinmarcu/theme` 1.3.0, and
 `@sabinmarcu/theme-core` 1.0.0. `src/web/theme.ts` owns the source inputs and extends
-the shared contract with static breakpoints. Existing palette inputs, spacing,
-typography, and learning controls are retained; derived colors use native CSS.
+the shared contract with static breakpoints. Primary, success, error, and background
+palettes use authored OKLCH light/dark values. Other palettes keep their configured
+colors; spacing, typography, and learning controls are retained. Derived colors
+use native CSS.
 
 Vite emits the `quizdeck-theme` stylesheet and version-2
 `script[type="application/json"][data-theme-manifests]` metadata into the HTML head
