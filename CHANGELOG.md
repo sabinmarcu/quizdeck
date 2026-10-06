@@ -10,6 +10,7 @@
 
 ### Features
 
+* Configure Vite's development server host allowlist with the Zod-parsed, comma-separated `VITE_ALLOWED_HOSTS` environment variable.
 * Add a touch-friendly outlined question-set file picker button and drag-and-drop guidance in the footer on every web page.
 * Show successful question-set loads as native top-right notifications that disappear after five seconds.
 * Paginate web Learn results with a 25-question default, configurable page size, boundary navigation, and safe page clamping.

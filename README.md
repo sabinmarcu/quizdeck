@@ -31,6 +31,20 @@ yarn start:cli web   # Serve the built web application
 yarn run quizdeck --help  # Built Node entry exposed through the package script
 ```
 
+Set `VITE_ALLOWED_HOSTS` to a comma-separated list of domains to allow additional
+hosts through Vite's development server host check:
+
+```sh
+VITE_ALLOWED_HOSTS=quizdeck.example.com,study.example.com yarn dev:web
+```
+
+The variable can also be set in Vite's mode-specific `.env` files. Zod parses it
+when the configuration loads, trimming whitespace and ignoring empty entries.
+An unset or empty value preserves Vite's default host restrictions; localhost
+and IP addresses remain allowed. Use hostnames without URL schemes or ports.
+This setting does not change the server's bind address or configure the built
+CLI's `web` server.
+
 `yarn dev:cli` also launches the source Ink command. `yarn cli web` serves the same
 built web application; it does not start Vite or build missing assets. Run
 `yarn build` first. The built CLI keeps dependencies external, so it requires the
