@@ -2,13 +2,12 @@ import {
   globalStyle,
   style,
 } from '@vanilla-extract/css';
-import { theme } from '@sabinmarcu/theme/theme';
-import { gridGenerator } from '@sabinmarcu/theme/generators/grid';
-import { defaultRemSize } from '@sabinmarcu/theme/generators/grid.constants';
+import {
+  queryGrid,
+  theme,
+} from './theme';
 import { shellMaxInlineSize } from './App.css';
 
-// Size queries cannot use CSS variables; derive spacing from the theme's grid generator.
-const queryGrid = gridGenerator()(defaultRemSize);
 const arrowGutter = `calc(${queryGrid.xl} + ${queryGrid.m} + ${queryGrid.s})`;
 const sideNavigationWidth = `calc(${shellMaxInlineSize} + 2 * ${arrowGutter})`;
 const sideNavigationQuery = `quizdeck-viewport (min-width: ${sideNavigationWidth})`;
@@ -133,7 +132,7 @@ export const pagination = style({
   gap: theme.grid.m,
   minInlineSize: 0,
   '@container': {
-    [theme.breakpoint['gt-mobile']]: {
+    [theme.breakpoint.gt.mobile]: {
       gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
     },
   },

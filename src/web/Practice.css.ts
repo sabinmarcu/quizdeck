@@ -1,5 +1,5 @@
 import { style } from '@vanilla-extract/css';
-import { theme } from '@sabinmarcu/theme/theme';
+import { theme } from './theme';
 
 const focusOutline = {
   outline: `${theme.grid.xs} solid ${theme.colors.info.base}`,

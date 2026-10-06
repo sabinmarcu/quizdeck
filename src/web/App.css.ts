@@ -1,5 +1,5 @@
 import { style } from '@vanilla-extract/css';
-import { theme } from '@sabinmarcu/theme/theme';
+import { theme } from './theme';
 
 export const shellMaxInlineSize = '72rem';
 

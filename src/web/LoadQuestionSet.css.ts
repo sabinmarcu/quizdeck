@@ -2,7 +2,7 @@ import {
   keyframes,
   style,
 } from '@vanilla-extract/css';
-import { theme } from '@sabinmarcu/theme/theme';
+import { theme } from './theme';
 
 export const action = style({
   background: theme.colors.primary.base,

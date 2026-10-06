@@ -22,6 +22,8 @@
 * Add a web learning-list shortcut to the first unanswered question without changing search, filters, or existing navigation behavior.
 * Give saved web learning question cards pronounced correct/incorrect backgrounds and matching 2px borders, retaining neutral unanswered cards and readable light/dark-theme feedback.
 * Match learning question navigation to list pagination with shared centered-arrow buttons, tall sticky gutter controls on wide layouts, and touch-sized rows on narrower screens.
+* Migrate web theme setup to the new public theme/core APIs, deliver the owned stylesheet before first paint, and embed version-2 devtools manifests with editable sources and static breakpoints. Retain application typography and learning controls.
+* Scope theme-core's stylesheet resolution to 1.1.0 and preapprove only the exact migration releases, removing obsolete theme compatibility extensions without disabling global package gates.
 
 ## [1.0.1](https://github.com/sabinmarcu/quizdeck/compare/v1.0.0...v1.0.1) (2026-10-02)
 

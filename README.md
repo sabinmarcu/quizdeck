@@ -526,10 +526,31 @@ validates Conventional Commits. VS Code uses ESLint, not Prettier. Tests use
 explicit Vitest imports in colocated specs. Compiler configurations split base,
 editor/typecheck, and source build scope.
 
-Web components use Vanilla Extract and `@sabinmarcu/theme`; theme values and public
-contract aliases are initialized before rendering. Theme 1.2.4 is pinned because
-1.2.5 omits its declared built entry points; unused MUI and Storybook integrations
-are marked optional.
+Web styles use Vanilla Extract, `@sabinmarcu/theme` 1.3.0, and
+`@sabinmarcu/theme-core` 1.0.0. `src/web/theme.ts` owns the source inputs and extends
+the shared contract with static breakpoints. Existing palette inputs, spacing,
+typography, and learning controls are retained; derived colors use native CSS.
+
+Vite emits the `quizdeck-theme` stylesheet and version-2
+`script[type="application/json"][data-theme-manifests]` metadata into the HTML head
+for both development and production. Styles are available before application
+JavaScript runs. The page consumes those allocations directly, without a redundant
+browser theme remount or value cache. Optional external devtools discover and edit
+the actual owned stylesheet; no inspector UI is added to Quizdeck. Static
+breakpoints and derived tokens are read-only. Native CSS requires current Chromium
+and Safari 26+; native Safari/iOS verification remains waived as noted above.
+
+The root `package.json` narrowly resolves
+`@sabinmarcu/theme-core@npm:1.0.0/@sabinmarcu/stylesheet` to `1.1.0`, replacing core's
+incompatible `1.0.3` pin without overriding other consumers. Remove this override
+when upgrading to a core release with a compatible upstream pin. `.yarnrc.yml`
+preapproves only these three exact migration releases for the existing package
+gates; the global gates remain enabled. `yarn why @sabinmarcu/stylesheet` shows the
+resolved edge, and `yarn install --immutable` verifies the lockfile.
 
 Known upstream tooling warning: the shared ESLint config requires ESLint 9 while
 its Unicorn dependency declares ESLint 10.4+. The configured lint command passes.
+
+Vite's bundled config loader supports the repository's extensionless imports but
+warns that a future native-loader default will require explicit extensions. The
+shared ESLint import policy remains unchanged; this warning is not suppressed.
