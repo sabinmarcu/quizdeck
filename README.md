@@ -145,13 +145,21 @@ and filter All, Unanswered, Completed, Correctly answered, or Incorrectly answer
 Completed/total counts remain independent of the current search results.
 
 Web Learn lists show 25 questions per page by default. **First page**, **Previous
-page**, **Next page**, and **Last page** navigate the filtered results. **Items per
-page** accepts positive whole numbers; invalid input keeps the last valid page
-size. When a size change or filtering reduces the page count, the current page
-clamps to the last available page. For example, page 4 of 175 questions at 25 per
-page becomes page 2 at 100 per page. List keyboard shortcuts stay within the
-visible page; returning from detail shows and focuses the current question's page.
-Pagination does not apply to Practice or the CLI.
+page**, **Next page**, and **Last page** navigate the filtered results. On wide
+screens, first/previous and next/last form tall sticky rails in the outer gutters,
+without reducing the Learn card's width. Narrow layouts use a touch-sized row
+above the results. The **Page number** input is centered and the page/result
+summary is right-aligned; narrow layouts stack these controls without overflow.
+Enter a whole page number and press Enter or leave the field to jump. Invalid
+values keep the current page; Escape restores its number. Empty results disable
+the page input and all four navigation buttons.
+
+**Items per page** accepts positive whole numbers; invalid input keeps the last
+valid page size. When a size change or filtering reduces the page count, the
+current page and page-number input clamp to the last available page. For example,
+page 4 of 175 questions at 25 per page becomes page 2 at 100 per page. List keyboard
+shortcuts stay within the visible page; returning from detail shows and focuses
+the current question's page. Pagination does not apply to Practice or the CLI.
 
 Web question cards fill the content container. Previous/next arrows sit outside
 the capped container when the viewport has room for both buttons and their focus

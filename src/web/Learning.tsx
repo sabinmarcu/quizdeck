@@ -52,12 +52,17 @@ import {
   itemsPerPage,
   navigationArrow,
   nextArrow,
+  nextPages,
   pageButton,
   pageInput,
+  pageNavigation,
+  pageNumber,
+  pageRail,
   pagination,
   paginationError,
   paginationStatus,
   previousArrow,
+  previousPages,
   question,
   questionHeading,
   questionText,
@@ -121,12 +126,17 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const [itemsPerPageValue, setItemsPerPageValue] = useState(String(defaultItemsPerPage));
   const [pageSize, setPageSize] = useState(defaultItemsPerPage);
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageNumberDraft, setPageNumberDraft] = useState<string | null>(null);
   const parsedItemsPerPage = positiveSafeInteger(itemsPerPageValue);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const visiblePage = Math.min(currentPage, totalPages - 1);
   if (currentPage !== visiblePage) {
     setCurrentPage(visiblePage);
+    setPageNumberDraft(null);
   }
+  const pageNumberValue = pageNumberDraft ?? String(visiblePage + 1);
+  const parsedPageNumber = positiveSafeInteger(pageNumberValue);
+  const pageNumberInvalid = parsedPageNumber === null || parsedPageNumber > totalPages;
   const pageRows = useMemo(() => rows.slice(
     visiblePage * pageSize,
     (visiblePage + 1) * pageSize,
@@ -142,6 +152,17 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const restoreHelpFocus = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [answerFocus, setAnswerFocus] = useState(0);
+
+  const changePage = useCallback((page: number) => {
+    setPageNumberDraft(null);
+    setCurrentPage(page);
+  }, []);
+
+  const commitPageNumber = useCallback(() => {
+    if (parsedPageNumber !== null && parsedPageNumber <= totalPages) {
+      changePage(parsedPageNumber - 1);
+    }
+  }, [changePage, parsedPageNumber, totalPages]);
 
   useEffect(() => {
     if (questionId !== null) {
@@ -211,9 +232,9 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const showRowPage = useCallback((id: number) => {
     const rowIndex = rows.findIndex((row) => row.id === id);
     if (rowIndex !== -1) {
-      setCurrentPage(Math.floor(rowIndex / pageSize));
+      changePage(Math.floor(rowIndex / pageSize));
     }
-  }, [pageSize, rows]);
+  }, [changePage, pageSize, rows]);
 
   const returnToList = useCallback(() => {
     setQuestionId(null);
@@ -237,6 +258,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   }, [openQuestion, showRowPage]);
 
   const changeItemsPerPage = useCallback((value: string) => {
+    setPageNumberDraft(null);
     setItemsPerPageValue(value);
     const nextPageSize = positiveSafeInteger(value);
     if (nextPageSize === null) {
@@ -685,7 +707,10 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             id="learning-search"
             type="search"
             value={query}
-            onChange={(event) => { setQuery(event.target.value); }}
+            onChange={(event) => {
+              setPageNumberDraft(null);
+              setQuery(event.target.value);
+            }}
           />
         </label>
         <label className={filter} htmlFor="learning-status">
@@ -694,7 +719,10 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             className={select}
             id="learning-status"
             value={filterValue}
-            onChange={(event) => { setFilterValue(event.target.value as typeof filterValue); }}
+            onChange={(event) => {
+              setPageNumberDraft(null);
+              setFilterValue(event.target.value as typeof filterValue);
+            }}
           >
             {learningFilters.map((filterName) => (
               <option key={filterName} value={filterName}>
@@ -748,7 +776,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           .
         </span>
       </p>
-      <nav className={pagination} aria-label="Question list pagination">
+      <div className={pagination}>
         <label className={itemsPerPage} htmlFor="learning-items-per-page">
           <span>Items per page</span>
           <input
@@ -770,40 +798,41 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             </p>
           )}
         </label>
-        <div className={buttonRow}>
-          <button
-            className={pageButton}
-            disabled={visiblePage === 0}
-            type="button"
-            onClick={() => { setCurrentPage(0); }}
-          >
-            First page
-          </button>
-          <button
-            className={pageButton}
-            disabled={visiblePage === 0}
-            type="button"
-            onClick={() => { setCurrentPage(visiblePage - 1); }}
-          >
-            Previous page
-          </button>
-          <button
-            className={pageButton}
-            disabled={visiblePage === totalPages - 1}
-            type="button"
-            onClick={() => { setCurrentPage(visiblePage + 1); }}
-          >
-            Next page
-          </button>
-          <button
-            className={pageButton}
-            disabled={visiblePage === totalPages - 1}
-            type="button"
-            onClick={() => { setCurrentPage(totalPages - 1); }}
-          >
-            Last page
-          </button>
-        </div>
+        <label className={pageNumber} htmlFor="learning-page-number">
+          <span>Page number</span>
+          <input
+            aria-describedby={pageNumberInvalid ? 'learning-page-number-error' : undefined}
+            aria-invalid={pageNumberInvalid || undefined}
+            className={pageInput}
+            disabled={rows.length === 0}
+            id="learning-page-number"
+            inputMode="numeric"
+            max={totalPages}
+            min={1}
+            step={1}
+            type="number"
+            value={pageNumberValue}
+            onBlur={commitPageNumber}
+            onChange={(event) => { setPageNumberDraft(event.target.value); }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                commitPageNumber();
+              } else if (event.key === 'Escape') {
+                event.preventDefault();
+                setPageNumberDraft(null);
+              }
+            }}
+          />
+          {pageNumberInvalid && (
+            <p className={paginationError} id="learning-page-number-error" aria-live="polite">
+              Enter a whole number from 1 to
+              {' '}
+              {totalPages}
+              .
+            </p>
+          )}
+        </label>
         <p className={paginationStatus} aria-live="polite">
           Page
           {' '}
@@ -818,6 +847,52 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             ? 'No matching results.'
             : `Showing ${firstResult}–${lastResult} of ${rows.length} results.`}
         </p>
+      </div>
+      <nav className={pageNavigation} aria-label="Question list pagination">
+        <div className={`${pageRail} ${previousPages}`}>
+          <button
+            aria-label="First page"
+            className={pageButton}
+            disabled={visiblePage === 0}
+            title="First page"
+            type="button"
+            onClick={() => { changePage(0); }}
+          >
+            <span aria-hidden="true">«</span>
+          </button>
+          <button
+            aria-label="Previous page"
+            className={pageButton}
+            disabled={visiblePage === 0}
+            title="Previous page"
+            type="button"
+            onClick={() => { changePage(visiblePage - 1); }}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+        </div>
+        <div className={`${pageRail} ${nextPages}`}>
+          <button
+            aria-label="Next page"
+            className={pageButton}
+            disabled={visiblePage === totalPages - 1}
+            title="Next page"
+            type="button"
+            onClick={() => { changePage(visiblePage + 1); }}
+          >
+            <span aria-hidden="true">→</span>
+          </button>
+          <button
+            aria-label="Last page"
+            className={pageButton}
+            disabled={visiblePage === totalPages - 1}
+            title="Last page"
+            type="button"
+            onClick={() => { changePage(totalPages - 1); }}
+          >
+            <span aria-hidden="true">»</span>
+          </button>
+        </div>
       </nav>
       {rows.length === 0
         ? (
