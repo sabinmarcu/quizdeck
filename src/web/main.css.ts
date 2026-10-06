@@ -2,6 +2,7 @@ import { globalStyle } from '@vanilla-extract/css';
 import { setupTheme } from '@sabinmarcu/theme/contracts/theme';
 import { theme } from '@sabinmarcu/theme/theme';
 import { defaultRemSize } from '@sabinmarcu/theme/generators/grid.constants';
+import { monoLisaText } from './fonts/MonoLisaText.css';
 
 setupTheme({
   grid: defaultRemSize,
@@ -34,7 +35,7 @@ setupTheme({
 });
 
 globalStyle(':root', {
-  fontFamily: 'system-ui, sans-serif',
+  fontFamily: `${monoLisaText}, sans-serif`,
   colorScheme: 'light dark',
   background: theme.colors.background.page,
   color: theme.colors.background.text,

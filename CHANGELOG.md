@@ -10,6 +10,7 @@
 
 ### Features
 
+* Use the proportional MonoLisa Text font throughout the web interface, with self-hosted variable regular and italic Latin subsets reused from the omnirepo website.
 * Configure Vite's development server host allowlist with the Zod-parsed, comma-separated `VITE_ALLOWED_HOSTS` environment variable.
 * Add a touch-friendly outlined question-set file picker button and drag-and-drop guidance in the footer on every web page.
 * Show successful question-set loads as native top-right notifications that disappear after five seconds.
