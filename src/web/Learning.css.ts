@@ -51,14 +51,9 @@ export const detailLayout = style({
   alignItems: 'center',
   display: 'grid',
   gap: theme.grid.l,
-  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   minInlineSize: 0,
   position: 'relative',
-  '@container': {
-    [sideNavigationQuery]: {
-      gridTemplateColumns: 'minmax(0, 1fr)',
-    },
-  },
 });
 
 export const secondaryActions = style({
@@ -230,8 +225,12 @@ export const secondaryButton = style({
 });
 
 export const pageButton = style([secondaryButton, {
+  alignItems: 'center',
+  display: 'flex',
   fontSize: theme.grid.xl,
   inlineSize: '100%',
+  justifyContent: 'center',
+  lineHeight: 1,
   minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
   minInlineSize: 0,
   padding: theme.grid.xs,
@@ -342,61 +341,57 @@ export const question = style({
   gridColumn: '1 / -1',
   minInlineSize: 0,
   padding: theme.grid.l,
+  selectors: {
+    '&[data-outcome="correctly_answered"]': {
+      background: `color-mix(in oklab, ${theme.colors.success.emphasis} 30%, ${theme.colors.background.page})`,
+      borderColor: theme.colors.success.emphasis,
+      borderWidth: 2,
+    },
+    '&[data-outcome="incorrectly_answered"]': {
+      background: `color-mix(in oklab, ${theme.colors.error.emphasis} 30%, ${theme.colors.background.page})`,
+      borderColor: theme.colors.error.emphasis,
+      borderWidth: 2,
+    },
+  },
 });
 
-export const navigationArrow = style({
-  alignItems: 'center',
-  background: theme.colors.background.elevated,
-  borderInlineStart: `1px solid ${theme.colors.primary.muted}`,
-  borderInlineEnd: `1px solid ${theme.colors.primary.muted}`,
-  borderBlockStart: `1px solid ${theme.colors.primary.muted}`,
-  borderBlockEnd: `1px solid ${theme.colors.primary.muted}`,
-  borderRadius: theme.grid.xs,
-  color: theme.colors.background.text,
+export const questionNavigation = style({
   display: 'grid',
-  fontSize: theme.grid.xl,
-  inlineSize: '100%',
-  justifyContent: 'center',
-  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+  gap: theme.grid.s,
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   minInlineSize: 0,
-  padding: theme.grid.xs,
-  selectors: {
-    '&:focus-visible': focusOutline,
-    '&:disabled': {
-      cursor: 'not-allowed',
-      opacity: 0.65,
-    },
-  },
   '@container': {
     [sideNavigationQuery]: {
-      inlineSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
-      insetBlockStart: '50%',
+      gridTemplateColumns: `calc(${theme.grid.xl} + ${theme.grid.m}) minmax(0, 1fr) calc(${theme.grid.xl} + ${theme.grid.m})`,
+      insetBlock: 0,
+      insetInline: `calc(-1 * (${theme.grid.xl} + ${theme.grid.m} + ${theme.grid.xl}))`,
+      pointerEvents: 'none',
       position: 'absolute',
-      transform: 'translateY(-50%)',
     },
   },
 });
+
+export const navigationArrow = style([pageButton, {
+  '@container': {
+    [sideNavigationQuery]: {
+      alignSelf: 'start',
+      blockSize: 'min(70dvh, 100%)',
+      insetBlockStart: theme.grid.l,
+      position: 'sticky',
+      pointerEvents: 'auto',
+    },
+  },
+}]);
 
 export const previousArrow = style({
   gridColumn: 1,
-  gridRow: 2,
-  '@container': {
-    [sideNavigationQuery]: {
-      gridColumn: 'auto',
-      gridRow: 'auto',
-      insetInlineEnd: `calc(100% + ${theme.grid.xl})`,
-    },
-  },
 });
 
 export const nextArrow = style({
   gridColumn: 2,
-  gridRow: 2,
   '@container': {
     [sideNavigationQuery]: {
-      gridColumn: 'auto',
-      gridRow: 'auto',
-      insetInlineStart: `calc(100% + ${theme.grid.xl})`,
+      gridColumn: 3,
     },
   },
 });

@@ -20,6 +20,8 @@
 * Shuffle Practice answer choices consistently across both interfaces, saved-run resumes, and reports while retaining canonical answer identity and scoring.
 * Add tall sticky learning-list pagination rails in the outer gutters, with touch-sized controls on narrower screens. Replace inline navigation buttons with a centered page-number input, right-align page status, and preserve filtering, page-size clamping, and detail-return context.
 * Add a web learning-list shortcut to the first unanswered question without changing search, filters, or existing navigation behavior.
+* Give saved web learning question cards pronounced correct/incorrect backgrounds and matching 2px borders, retaining neutral unanswered cards and readable light/dark-theme feedback.
+* Match learning question navigation to list pagination with shared centered-arrow buttons, tall sticky gutter controls on wide layouts, and touch-sized rows on narrower screens.
 
 ## [1.0.1](https://github.com/sabinmarcu/quizdeck/compare/v1.0.0...v1.0.1) (2026-10-02)
 

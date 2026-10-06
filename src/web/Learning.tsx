@@ -66,6 +66,7 @@ import {
   previousPages,
   question,
   questionHeading,
+  questionNavigation,
   questionText,
   results,
   root,
@@ -570,7 +571,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
     return (
       <section className={detailRoot} aria-labelledby="learning-question">
         <div className={detailLayout}>
-          <div className={question}>
+          <div className={question} data-outcome={detail.status}>
             <p className={rowMeta} data-outcome={detail.status}>
               Question
               {' '}
@@ -649,24 +650,26 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
               </p>
             )}
           </div>
-          <button
-            aria-label="Previous question"
-            className={`${navigationArrow} ${previousArrow}`}
-            disabled={previousDetailId === null}
-            type="button"
-            onClick={() => { moveDetail(previousDetailId); }}
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <button
-            aria-label="Next question"
-            className={`${navigationArrow} ${nextArrow}`}
-            disabled={nextDetailId === null}
-            type="button"
-            onClick={() => { moveDetail(nextDetailId); }}
-          >
-            <span aria-hidden="true">→</span>
-          </button>
+          <nav className={questionNavigation} aria-label="Question navigation">
+            <button
+              aria-label="Previous question"
+              className={`${navigationArrow} ${previousArrow}`}
+              disabled={previousDetailId === null}
+              type="button"
+              onClick={() => { moveDetail(previousDetailId); }}
+            >
+              <span aria-hidden="true">←</span>
+            </button>
+            <button
+              aria-label="Next question"
+              className={`${navigationArrow} ${nextArrow}`}
+              disabled={nextDetailId === null}
+              type="button"
+              onClick={() => { moveDetail(nextDetailId); }}
+            >
+              <span aria-hidden="true">→</span>
+            </button>
+          </nav>
         </div>
         <div className={secondaryActions}>
           <button className={secondaryButton} type="button" onClick={returnToList}>

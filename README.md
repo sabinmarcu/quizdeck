@@ -167,11 +167,15 @@ page 4 of 175 questions at 25 per page becomes page 2 at 100 per page. List keyb
 shortcuts stay within the visible page; returning from detail shows and focuses
 the current question's page. Pagination does not apply to Practice or the CLI.
 
-Web question cards fill the content container. Previous/next arrows sit outside
-the capped container when the viewport has room for both buttons and their focus
-rings; otherwise, touch-sized navigation buttons form a row below the card.
+Web question cards fill the content container. Question previous/next controls
+share the learning-list button styling, with arrows centered on both axes. Wide
+layouts use tall sticky controls in the outer gutters; narrower layouts use a
+touch-sized navigation row below the card.
 **Back to list**, **Keyboard help**, and **Reset all learning progress** sit below
 the card/navigation and above the question-set loading footer.
+Saved web learning question cards use pronounced green or red backgrounds and
+matching 2px borders for correct or incorrect outcomes. Unanswered cards remain neutral;
+status labels and individual answer-choice feedback remain visible alongside color.
 
 Opening a question or moving choice focus does not complete it. Activate a choice
 with Enter, a–d/1–4, or a web button; there is no separate submit step. The answer
