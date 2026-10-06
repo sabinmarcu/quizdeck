@@ -45,6 +45,18 @@ and IP addresses remain allowed. Use hostnames without URL schemes or ports.
 This setting does not change the server's bind address or configure the built
 CLI's `web` server.
 
+For development access from another device on your LAN, also set the bind address:
+
+```sh
+VITE_ALLOWED_HOSTS=devbox.router.local yarn dev:web --host 0.0.0.0
+```
+
+Plain HTTP on a LAN hostname or IP address supports startup, question-set imports,
+and practice. Session/run IDs use `crypto.getRandomValues()`, and content hashes
+use portable SHA-256 rather than secure-context-only browser APIs. Existing saved
+hashes and runs remain compatible. Progress is separate for each browser origin;
+HTTP may show the existing best-effort storage retention warning.
+
 `yarn dev:cli` also launches the source Ink command. `yarn cli web` serves the same
 built web application; it does not start Vite or build missing assets. Run
 `yarn build` first. The built CLI keeps dependencies external, so it requires the

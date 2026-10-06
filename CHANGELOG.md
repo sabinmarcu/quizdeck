@@ -7,6 +7,7 @@
 ### Bug Fixes
 
 * Keep development toolchain pins in `.prototools` rather than the published manifest; move Husky to manual `prepare` setup and remove `pinst` so consumer installs do not execute development hooks.
+* Support plain HTTP on LAN hostnames and IP addresses by generating practice identities with `crypto.getRandomValues()` and hashing question sets with portable SHA-256, preserving existing saved progress.
 
 ### Features
 

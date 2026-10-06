@@ -55,6 +55,12 @@ export namespace createPracticeController {
   }
 }
 
+function createPracticeId(): string {
+  // Unlike randomUUID, getRandomValues is also available over plain LAN HTTP.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 const runFrom = (snapshot: Snapshot, id: string) => {
   const run = snapshot.runs.find((entry) => entry.id === id);
   if (!run || run.status === 'completed') {
@@ -69,7 +75,7 @@ export function createPracticeController(
 ): PracticeController {
   const now = options.now ?? Date.now;
   const monotonic = options.monotonic ?? (() => performance.now());
-  const ownerId = options.ownerId ?? crypto.randomUUID();
+  const ownerId = options.ownerId ?? createPracticeId();
   let activeId: string | null = null;
   let intervalStart = 0;
   let intervalBase = 0;
@@ -290,7 +296,7 @@ export function createPracticeController(
       if (startup === null) {
         throw new Error('Load progress storage before starting practice.');
       }
-      const run = createPracticeRun(startup.set, crypto.randomUUID(), now());
+      const run = createPracticeRun(startup.set, createPracticeId(), now());
       const saved = await persistence.mutate(() => [
         {
           kind: 'putRun',

@@ -1,3 +1,4 @@
+import { hash } from '@stablelib/sha256';
 import { z } from 'zod';
 
 const textSchema = z.string().refine((value) => value.trim().length > 0, 'Text must not be blank');
@@ -44,8 +45,7 @@ export type QuestionSet = Readonly<z.infer<typeof questionSetSchema>>;
 
 export async function questionContentHash(questions: readonly Question[]): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(questions));
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(hash(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export namespace createQuestionSet {

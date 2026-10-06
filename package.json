@@ -47,6 +47,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@stablelib/sha256": "^2.0.1",
     "clipanion": "^4.0.0-rc.4",
     "ink": "^7.1.1",
     "jotai": "^3.0.1",
