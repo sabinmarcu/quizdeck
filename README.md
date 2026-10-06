@@ -54,8 +54,8 @@ VITE_ALLOWED_HOSTS=devbox.router.local yarn dev:web --host 0.0.0.0
 Plain HTTP on a LAN hostname or IP address supports startup, question-set imports,
 and practice. Session/run IDs use `crypto.getRandomValues()`, and content hashes
 use portable SHA-256 rather than secure-context-only browser APIs. Existing saved
-hashes and runs remain compatible. Progress is separate for each browser origin;
-HTTP may show the existing best-effort storage retention warning.
+hashes and runs remain compatible. Progress is separate for each browser origin.
+Retention status is available under Extras → Storage and does not block Learn.
 
 `yarn dev:cli` also launches the source Ink command. `yarn cli web` serves the same
 built web application; it does not start Vite or build missing assets. Run
@@ -130,8 +130,8 @@ The top-level order is **Learn**, **Practice**, then **Extras**. Extras contains
   Escape closes Extras or returns to the parent/menu focus; Ctrl-d/u scrolls.
 - CLI: `q` or Ctrl-C exits; `r` retries after a storage error.
 - Web: Tab, click, and touch work alongside shortcuts. Text editing and composition
-  do not trigger character shortcuts. A denied persistent-retention request must
-  be acknowledged before entering the shell.
+  do not trigger character shortcuts. Once local storage is ready, the web app
+  opens Learn directly without a persistence acknowledgement.
 
 Extras → Overview reports the current set's name, demo/file source, load time,
 question/answer counts, and saved-record counts. Extras → Storage shows the backend,
@@ -313,9 +313,11 @@ practice run returns to history with a notice. Its timer stops; later checkpoint
 never recreate it. Repeated loads of identical content still reset all progress.
 
 Browser persistent retention is requested. Denied or unavailable retention means
-best-effort storage, not an in-memory fallback. Site-data clearing, private-session
-teardown, or browser eviction can still remove browser progress. Unavailable storage
-is an explicit startup error. SQLite files can likewise be deleted or lost.
+best-effort storage, not an in-memory fallback. Learn opens directly without an
+acknowledgement; Extras → Storage reports retention. Site-data clearing,
+private-session teardown, or browser eviction can still remove browser progress.
+Unavailable storage remains an explicit startup error. SQLite files can likewise
+be deleted or lost.
 
 ## Question set
 
