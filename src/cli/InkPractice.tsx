@@ -269,15 +269,16 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
     }
   };
 
-  const submitAnswer = async (answerIndex: number) => {
-    if (!view || !view.canAnswer || answerIndex >= view.choices.length) {
+  const submitAnswer = async (displayIndex: number) => {
+    const choice = view?.choices[displayIndex];
+    if (!view || !view.canAnswer || !choice) {
       return;
     }
     const { runId, position } = view;
     const saved = await invoke(() => answer({
       runId,
       position,
-      answerIndex,
+      answerIndex: choice.answerIndex,
     }));
     if (saved) {
       setChoiceFocus(0);

@@ -153,15 +153,16 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
     }
   }, [busy, focusHistory, leave]);
 
-  const commitAnswer = useCallback(async (answerIndex: number) => {
-    if (!view || !view.canAnswer || busy) {
+  const commitAnswer = useCallback(async (displayIndex: number) => {
+    const choice = view?.choices[displayIndex];
+    if (!view || !view.canAnswer || busy || !choice) {
       return;
     }
     const { position, runId } = view;
     if (await answerQuestion({
       runId,
       position,
-      answerIndex,
+      answerIndex: choice.answerIndex,
     })) {
       setChoiceFocus(0);
       focusQuestion();

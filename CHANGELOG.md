@@ -17,6 +17,7 @@
 * Show successful question-set loads as native top-right notifications that disappear after five seconds.
 * Paginate web Learn results with a 25-question default, configurable page size, boundary navigation, and safe page clamping.
 * Make learning question cards fill the content container, place wide-screen navigation arrows in the outer gutters, and use a touch-sized navigation row on narrower screens. Move secondary actions below the card and above the footer.
+* Shuffle Practice answer choices consistently across both interfaces, saved-run resumes, and reports while retaining canonical answer identity and scoring.
 
 ## [1.0.1](https://github.com/sabinmarcu/quizdeck/compare/v1.0.0...v1.0.1) (2026-10-02)
 

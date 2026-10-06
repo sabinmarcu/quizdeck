@@ -205,6 +205,12 @@ run saves a randomized order of **min(60, N) distinct questions**, where N is th
 current set's question count. The demo yields a three-question run. Runs are
 independent; starting another does not replace history.
 
+Practice also shuffles answer choices in both interfaces. The run and question
+identities determine a stable display order across review, pause/resume, reload,
+and completed reports. Choice shortcuts refer to that displayed order, while
+saved answers retain their original dataset indices for scoring. Learning keeps
+the source answer order; existing saved progress requires no schema migration.
+
 Activate an answer once with a choice button, Enter, or a–d/1–4. A successful
 transaction records the answer and advances to the next unanswered question.
 Earlier questions can be inspected with h/l or previous/next controls, showing
