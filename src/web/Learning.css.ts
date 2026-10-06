@@ -1,5 +1,17 @@
-import { style } from '@vanilla-extract/css';
+import {
+  globalStyle,
+  style,
+} from '@vanilla-extract/css';
 import { theme } from '@sabinmarcu/theme/theme';
+import { gridGenerator } from '@sabinmarcu/theme/generators/grid';
+import { defaultRemSize } from '@sabinmarcu/theme/generators/grid.constants';
+import { shellMaxInlineSize } from './App.css';
+
+// Size queries cannot use CSS variables; derive spacing from the theme's grid generator.
+const queryGrid = gridGenerator()(defaultRemSize);
+const arrowGutter = `calc(${queryGrid.xl} + ${queryGrid.m} + ${queryGrid.s})`;
+const sideNavigationWidth = `calc(${shellMaxInlineSize} + 2 * ${arrowGutter})`;
+const sideNavigationQuery = `quizdeck-viewport (min-width: ${sideNavigationWidth})`;
 
 const focusOutline = {
   outline: `${theme.grid.xs} solid ${theme.colors.info.base}`,
@@ -22,6 +34,40 @@ export const root = style({
   gap: theme.grid.l,
   minInlineSize: 0,
   padding: theme.grid.l,
+});
+
+export const detailRoot = style({
+  display: 'grid',
+  gap: theme.grid.l,
+  minInlineSize: 0,
+});
+
+export const detailLayout = style({
+  alignItems: 'center',
+  display: 'grid',
+  gap: theme.grid.l,
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  minInlineSize: 0,
+  position: 'relative',
+  '@container': {
+    [sideNavigationQuery]: {
+      gridTemplateColumns: 'minmax(0, 1fr)',
+    },
+  },
+});
+
+export const secondaryActions = style({
+  alignItems: 'center',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: theme.grid.s,
+  inlineSize: '100%',
+  justifySelf: 'center',
+  minInlineSize: 0,
+});
+
+globalStyle(`${secondaryActions} > button`, {
+  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
 });
 
 export const controls = style({
@@ -217,9 +263,74 @@ export const rowMeta = style({
 });
 
 export const question = style({
+  background: theme.colors.background.surface,
+  borderInlineStart: `1px solid ${theme.colors.primary.muted}`,
+  borderInlineEnd: `1px solid ${theme.colors.primary.muted}`,
+  borderBlockStart: `1px solid ${theme.colors.primary.muted}`,
+  borderBlockEnd: `1px solid ${theme.colors.primary.muted}`,
+  borderRadius: theme.grid.s,
   display: 'grid',
   gap: theme.grid.l,
+  gridColumn: '1 / -1',
   minInlineSize: 0,
+  padding: theme.grid.l,
+});
+
+export const navigationArrow = style({
+  alignItems: 'center',
+  background: theme.colors.background.elevated,
+  borderInlineStart: `1px solid ${theme.colors.primary.muted}`,
+  borderInlineEnd: `1px solid ${theme.colors.primary.muted}`,
+  borderBlockStart: `1px solid ${theme.colors.primary.muted}`,
+  borderBlockEnd: `1px solid ${theme.colors.primary.muted}`,
+  borderRadius: theme.grid.xs,
+  color: theme.colors.background.text,
+  display: 'grid',
+  fontSize: theme.grid.xl,
+  inlineSize: '100%',
+  justifyContent: 'center',
+  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+  minInlineSize: 0,
+  padding: theme.grid.xs,
+  selectors: {
+    '&:focus-visible': focusOutline,
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.65,
+    },
+  },
+  '@container': {
+    [sideNavigationQuery]: {
+      inlineSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+      insetBlockStart: '50%',
+      position: 'absolute',
+      transform: 'translateY(-50%)',
+    },
+  },
+});
+
+export const previousArrow = style({
+  gridColumn: 1,
+  gridRow: 2,
+  '@container': {
+    [sideNavigationQuery]: {
+      gridColumn: 'auto',
+      gridRow: 'auto',
+      insetInlineEnd: `calc(100% + ${theme.grid.xl})`,
+    },
+  },
+});
+
+export const nextArrow = style({
+  gridColumn: 2,
+  gridRow: 2,
+  '@container': {
+    [sideNavigationQuery]: {
+      gridColumn: 'auto',
+      gridRow: 'auto',
+      insetInlineStart: `calc(100% + ${theme.grid.xl})`,
+    },
+  },
 });
 
 export const questionHeading = style({

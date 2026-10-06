@@ -153,6 +153,12 @@ page becomes page 2 at 100 per page. List keyboard shortcuts stay within the
 visible page; returning from detail shows and focuses the current question's page.
 Pagination does not apply to Practice or the CLI.
 
+Web question cards fill the content container. Previous/next arrows sit outside
+the capped container when the viewport has room for both buttons and their focus
+rings; otherwise, touch-sized navigation buttons form a row below the card.
+**Back to list**, **Keyboard help**, and **Reset all learning progress** sit below
+the card/navigation and above the question-set loading footer.
+
 Opening a question or moving choice focus does not complete it. Activate a choice
 with Enter, a–d/1–4, or a web button; there is no separate submit step. The answer
 and correct/incorrect completion status are persisted together, then correctness

@@ -42,17 +42,22 @@ import {
   buttonRow,
   controls,
   counts,
+  detailLayout,
+  detailRoot,
   empty,
   feedback,
   feedbackText,
   filter,
   input,
   itemsPerPage,
+  navigationArrow,
+  nextArrow,
   pageButton,
   pageInput,
   pagination,
   paginationError,
   paginationStatus,
+  previousArrow,
   question,
   questionHeading,
   questionText,
@@ -61,6 +66,7 @@ import {
   rowButton,
   rowMeta,
   search,
+  secondaryActions,
   secondaryButton,
   select,
 } from './Learning.css';
@@ -538,122 +544,126 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   if (questionId !== null && detail) {
     const answered = detail.status !== 'unanswered';
     return (
-      <section className={root} aria-labelledby="learning-question">
-        <div className={question}>
-          <p className={rowMeta} data-outcome={detail.status}>
-            Question
-            {' '}
-            {detail.id}
-            {' '}
-            ·
-            {' '}
-            {learningStatusLabels[detail.status]}
-          </p>
-          <h2
-            className={questionHeading}
-            data-outcome={detail.status}
-            id="learning-question"
-            tabIndex={-1}
-          >
-            Question
-            {' '}
-            {detail.id}
-          </h2>
-          <p className={questionText}>{detail.description}</p>
-          <ol className={answerList} aria-label="Answer choices">
-            {detail.choices.map((choice, index) => {
-              const letter = answerKeys[index] ?? String(index + 1);
-              return (
-                <li key={`${detail.id}-${choice.text}`}>
-                  <button
-                    ref={(element) => {
-                      if (element) {
-                        answerButtonReferences.current.set(index, element);
-                      } else {
-                        answerButtonReferences.current.delete(index);
-                      }
-                    }}
-                    aria-describedby={choice.feedback
-                      ? `feedback-${detail.id}-${index}`
-                      : undefined}
-                    className={answer}
-                    data-correct={choice.feedback?.correct}
-                    disabled={answered || pending}
-                    type="button"
-                    onClick={async () => { await commitAnswer(index); }}
-                    onFocus={() => { setAnswerFocus(index); }}
-                  >
-                    <span className={answerLabel}>
-                      {letter.toUpperCase()}
-                      .
-                      {' '}
-                      {choice.text}
-                    </span>
-                    {choice.feedback && (
-                      <span className={feedback} id={`feedback-${detail.id}-${index}`}>
-                        <span className={feedbackText}>
-                          {choice.feedback.selected && <strong>Selected answer. </strong>}
-                          {choice.feedback.correct
-                            ? 'Correct answer.'
-                            : 'Not the correct answer.'}
-                        </span>
-                        <span className={feedbackText}>
-                          <strong>Explanation: </strong>
-                          {choice.feedback.justification}
-                        </span>
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-          {answered && (
-            <p className={empty} data-outcome={detail.status} aria-live="polite">
-              This answer is saved as
+      <section className={detailRoot} aria-labelledby="learning-question">
+        <div className={detailLayout}>
+          <div className={question}>
+            <p className={rowMeta} data-outcome={detail.status}>
+              Question
               {' '}
-              {learningStatusLabels[detail.status].toLowerCase()}
-              .
-              Reset all learning progress to answer it again.
+              {detail.id}
+              {' '}
+              ·
+              {' '}
+              {learningStatusLabels[detail.status]}
             </p>
-          )}
-          <div className={buttonRow}>
-            <button className={secondaryButton} type="button" onClick={returnToList}>
-              Back to list
-            </button>
-            <button
-              className={secondaryButton}
-              disabled={previousDetailId === null}
-              type="button"
-              onClick={() => { moveDetail(previousDetailId); }}
+            <h2
+              className={questionHeading}
+              data-outcome={detail.status}
+              id="learning-question"
+              tabIndex={-1}
             >
-              Previous question
-            </button>
-            <button
-              className={secondaryButton}
-              disabled={nextDetailId === null}
-              type="button"
-              onClick={() => { moveDetail(nextDetailId); }}
-            >
-              Next question
-            </button>
-            <button
-              ref={helpButtonReference}
-              className={secondaryButton}
-              type="button"
-              onClick={() => { setHelpOpen(true); }}
-            >
-              Keyboard help
-            </button>
-            <button
-              ref={resetButtonReference}
-              className={button}
-              type="button"
-              onClick={openResetDialog}
-            >
-              Reset all learning progress
-            </button>
+              Question
+              {' '}
+              {detail.id}
+            </h2>
+            <p className={questionText}>{detail.description}</p>
+            <ol className={answerList} aria-label="Answer choices">
+              {detail.choices.map((choice, index) => {
+                const letter = answerKeys[index] ?? String(index + 1);
+                return (
+                  <li key={`${detail.id}-${choice.text}`}>
+                    <button
+                      ref={(element) => {
+                        if (element) {
+                          answerButtonReferences.current.set(index, element);
+                        } else {
+                          answerButtonReferences.current.delete(index);
+                        }
+                      }}
+                      aria-describedby={choice.feedback
+                        ? `feedback-${detail.id}-${index}`
+                        : undefined}
+                      className={answer}
+                      data-correct={choice.feedback?.correct}
+                      disabled={answered || pending}
+                      type="button"
+                      onClick={async () => { await commitAnswer(index); }}
+                      onFocus={() => { setAnswerFocus(index); }}
+                    >
+                      <span className={answerLabel}>
+                        {letter.toUpperCase()}
+                        .
+                        {' '}
+                        {choice.text}
+                      </span>
+                      {choice.feedback && (
+                        <span className={feedback} id={`feedback-${detail.id}-${index}`}>
+                          <span className={feedbackText}>
+                            {choice.feedback.selected && <strong>Selected answer. </strong>}
+                            {choice.feedback.correct
+                              ? 'Correct answer.'
+                              : 'Not the correct answer.'}
+                          </span>
+                          <span className={feedbackText}>
+                            <strong>Explanation: </strong>
+                            {choice.feedback.justification}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            {answered && (
+              <p className={empty} data-outcome={detail.status} aria-live="polite">
+                This answer is saved as
+                {' '}
+                {learningStatusLabels[detail.status].toLowerCase()}
+                .
+                Reset all learning progress to answer it again.
+              </p>
+            )}
           </div>
+          <button
+            aria-label="Previous question"
+            className={`${navigationArrow} ${previousArrow}`}
+            disabled={previousDetailId === null}
+            type="button"
+            onClick={() => { moveDetail(previousDetailId); }}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+          <button
+            aria-label="Next question"
+            className={`${navigationArrow} ${nextArrow}`}
+            disabled={nextDetailId === null}
+            type="button"
+            onClick={() => { moveDetail(nextDetailId); }}
+          >
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+        <div className={secondaryActions}>
+          <button className={secondaryButton} type="button" onClick={returnToList}>
+            Back to list
+          </button>
+          <button
+            ref={helpButtonReference}
+            className={secondaryButton}
+            type="button"
+            onClick={() => { setHelpOpen(true); }}
+          >
+            Keyboard help
+          </button>
+          <button
+            ref={resetButtonReference}
+            className={button}
+            type="button"
+            onClick={openResetDialog}
+          >
+            Reset all learning progress
+          </button>
         </div>
         {dialogs}
       </section>

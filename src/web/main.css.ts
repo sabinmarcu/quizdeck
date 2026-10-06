@@ -46,6 +46,8 @@ globalStyle('*, *::before, *::after', {
 });
 
 globalStyle('body', {
+  containerName: 'quizdeck-viewport',
+  containerType: 'inline-size',
   margin: 0,
   minBlockSize: '100vh',
   background: theme.colors.background.page,
