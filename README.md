@@ -510,6 +510,30 @@ Sources: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 and [Husky manual setup](https://typicode.github.io/husky/how-to.html#manual-setup).
 
 
+## Vercel deployments
+
+Vercel uses the committed `.yarn/releases/yarn-4.18.1.cjs` release rather than its
+preinstalled Yarn or Corepack. `.yarnrc.yml` points `yarnPath` at that release;
+local Proto and GitHub CI continue using the same pinned version.
+
+`vercel.json` overrides the install and build commands with:
+
+```sh
+node .yarn/releases/yarn-4.18.1.cjs install --immutable
+node .yarn/releases/yarn-4.18.1.cjs build
+```
+
+The output directory is `dist/web`, matching Vite's configured build output.
+Keep `ENABLE_EXPERIMENTAL_COREPACK` disabled (`0` or unset) for the deployment
+environments. The immutable install preserves the checked-in lockfile and the
+scoped stylesheet resolution; do not fall back to Yarn Classic or rewrite it.
+
+When upgrading Yarn, keep `packageManager`, `.prototools`, `yarnPath`, the committed
+release, and the explicit paths in `vercel.json` aligned. Commit the release file;
+a missing binary makes deployment installation fail.
+
+Source: [Vercel's committed Yarn-release support](https://vercel.com/kb/guide/does-vercel-support-yarn-4).
+
 ## Checks and tooling
 
 ```sh
