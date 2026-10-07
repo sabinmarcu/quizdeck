@@ -88,13 +88,6 @@ describe('parseQuestionSet', () => {
         correct: false,
       })),
     }]), '[0].answers'],
-    ['two correct answers', JSON.stringify([{
-      ...question,
-      answers: question.answers.map((answer) => ({
-        ...answer,
-        correct: true,
-      })),
-    }]), '[0].answers'],
     ['blank text', JSON.stringify([{
       ...question,
       description: '  ',

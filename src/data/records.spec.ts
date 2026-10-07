@@ -45,12 +45,23 @@ function persisted(): Snapshot {
 }
 
 describe('persisted progress validation', () => {
+  it.each([[], [0, 0], [0, 1]].map((indices) => ({ indices })))('rejects empty, duplicate, or fabricated-correct selections $indices', ({ indices }) => {
+    expect(() => validateSnapshot({
+      ...persisted(),
+      learning: [{
+        questionId: 1,
+        answerIndices: indices,
+        outcome: 'correctly_answered',
+      }],
+    })).toThrow();
+  });
+
   it('rejects fabricated outcomes, unavailable choices, and question IDs outside the current set', () => {
     expect(() => validateSnapshot({
       ...persisted(),
       learning: [{
         questionId: 1,
-        answerIndex: 0,
+        answerIndices: [0],
         outcome: 'incorrectly_answered',
       }],
     })).toThrow('correctness');
@@ -58,7 +69,7 @@ describe('persisted progress validation', () => {
       ...persisted(),
       learning: [{
         questionId: 1,
-        answerIndex: 2,
+        answerIndices: [2],
         outcome: 'correctly_answered',
       }],
     })).toThrow('correctness');
@@ -66,7 +77,7 @@ describe('persisted progress validation', () => {
       ...persisted(),
       learning: [{
         questionId: 4,
-        answerIndex: 0,
+        answerIndices: [0],
         outcome: 'correctly_answered',
       }],
     })).toThrow('question set');
@@ -82,7 +93,7 @@ describe('persisted progress validation', () => {
   it('rejects duplicated record identities and progress without a current set', () => {
     const answer = {
       questionId: 1,
-      answerIndex: 0,
+      answerIndices: [0],
       outcome: 'correctly_answered' as const,
     };
     expect(() => validateSnapshot({
@@ -140,7 +151,7 @@ describe('persisted progress validation', () => {
       questionIds: [1, 2, 3],
       answers: [1, 2, 3].map((questionId) => ({
         questionId,
-        answerIndex: 0,
+        answerIndices: [0],
         outcome: 'correctly_answered' as const,
       })),
       nextUnanswered: 3,

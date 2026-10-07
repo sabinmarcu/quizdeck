@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { validateQuestionSet } from '../data/question-set';
+import { migrateSnapshot } from '../data/migrate-snapshot';
 import {
   emptySnapshot,
   validateSnapshot,
@@ -107,7 +108,7 @@ function writeTransaction(
 function openDatabase(name: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const request = indexedDB.open(name, 1);
+    const request = indexedDB.open(name, 2);
     const fail = (error: Error) => {
       settled = true;
       reject(error);
@@ -119,6 +120,24 @@ function openDatabase(name: string): Promise<IDBDatabase> {
       }
       if (request.transaction && event.oldVersion === 0) {
         request.transaction.objectStore(metadataStore).put(emptySnapshot(), snapshotKey);
+      }
+      if (request.transaction && event.oldVersion === 1) {
+        const { transaction } = request;
+        const metadata = transaction.objectStore(metadataStore);
+        const snapshotRequest = metadata.get(snapshotKey);
+        snapshotRequest.addEventListener('success', async () => {
+          try {
+            const migrated = migrateSnapshot(snapshotRequest.result);
+            const snapshot = await validateStoredSnapshot(migrated);
+            metadata.put({
+              ...snapshot,
+              revision: snapshot.revision + 1,
+            }, snapshotKey);
+          } catch (error) {
+            fail(error instanceof Error ? error : new Error('Progress migration failed.'));
+            transaction.abort();
+          }
+        }, { once: true });
       }
     });
     request.addEventListener('blocked', () => {

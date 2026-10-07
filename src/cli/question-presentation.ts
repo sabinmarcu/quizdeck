@@ -2,10 +2,14 @@ import type { Key } from 'ink';
 import wrapAnsi from 'wrap-ansi';
 import { learningAnswerIndex } from '../state/learning';
 
-export const questionControls = [
-  'h/l or left/right previous/next · Esc back · j/k focus or read · ',
-  'Enter/a-d/1-4 answer',
-].join('');
+export function questionControls(multiple: boolean) {
+  return [
+    'h/l or left/right previous/next · Esc back · j/k focus or read · ',
+    multiple
+      ? 'Enter/Space/a-d/1-4 select choice'
+      : 'Enter/a-d/1-4 answer',
+  ].join('');
+}
 
 export interface QuestionLine {
   text: string;
@@ -93,7 +97,7 @@ export type QuestionAction =
   | { type: 'choice'; step: number }
   | { type: 'answer'; index: number | null };
 
-export function questionAction(input: string, key: Key): QuestionAction | null {
+export function questionAction(input: string, key: Key, multiple = false): QuestionAction | null {
   if (key.eventType === 'release' || key.meta || key.ctrl || key.super || key.hyper) {
     return null;
   }
@@ -140,7 +144,7 @@ export function questionAction(input: string, key: Key): QuestionAction | null {
     return null;
   }
   const index = learningAnswerIndex(input);
-  if (index !== null || key.return) {
+  if (index !== null || key.return || (multiple && input === ' ')) {
     return {
       type: 'answer',
       index,

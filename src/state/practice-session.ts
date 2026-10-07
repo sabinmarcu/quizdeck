@@ -24,6 +24,11 @@ export const practiceBusyAtom = atom(false);
 export const practiceElapsedAtom = atom(0);
 export const practiceErrorAtom = atom<string | null>(null);
 export const practiceNoticeAtom = atom<string | null>(null);
+export const practiceSelectionAtom = atom<{
+  runId: string;
+  position: number;
+  answerIndices: number[];
+} | null>(null);
 const controllerAtom = atom<PracticeController | null>(null);
 const leaseMs = 5000;
 
@@ -114,6 +119,7 @@ export function createPracticeController(
     frozenElapsed = null;
     intervalBase = 0;
     store.set(practiceSelectedIdAtom, null);
+    store.set(practiceSelectionAtom, null);
     store.set(practiceOwnedAtom, false);
     store.set(practiceElapsedAtom, 0);
     store.set(practiceErrorAtom, null);
@@ -291,6 +297,7 @@ export function createPracticeController(
   const controller: PracticeController = {
     start: () => userAction(async () => {
       store.set(practiceNoticeAtom, null);
+      store.set(practiceSelectionAtom, null);
       await persistPause();
       const startup = persistence.read();
       if (startup === null) {
@@ -323,6 +330,7 @@ export function createPracticeController(
       return true;
     }),
     open: (runId) => userAction(async () => {
+      store.set(practiceSelectionAtom, null);
       await persistPause();
       await persistence.refresh();
       const startup = persistence.read();
@@ -344,10 +352,37 @@ export function createPracticeController(
       const validated = z.strictObject({
         runId: z.string().min(1),
         position: z.number().int().nonnegative(),
-        answerIndex: z.number().int().nonnegative(),
+        answerIndex: z.number().int().nonnegative().safe(),
       }).parse(input);
       if (activeId !== validated.runId || !store.get(practiceOwnedAtom)) {
         throw new Error('Resume this practice run before answering.');
+      }
+      const startup = persistence.read();
+      if (!startup) {
+        throw new Error('The saved practice question is unavailable.');
+      }
+      const currentRun = runFrom(startup.snapshot, validated.runId);
+      const selection = store.get(practiceSelectionAtom);
+      const previous = selection?.runId === validated.runId
+        && selection.position === validated.position
+        ? selection.answerIndices
+        : [];
+      const answerIndices = previous.includes(validated.answerIndex)
+        ? previous
+        : [...previous, validated.answerIndex];
+      const accepted = answerPracticeRun(currentRun, startup.set, {
+        position: validated.position,
+        answerIndices,
+        elapsedMs: elapsed(),
+        now: now(),
+      });
+      if (accepted === currentRun) {
+        store.set(practiceSelectionAtom, {
+          runId: validated.runId,
+          position: validated.position,
+          answerIndices,
+        });
+        return true;
       }
       const at = now();
       const duration = elapsed();
@@ -358,6 +393,7 @@ export function createPracticeController(
         }
         const next = answerPracticeRun(run, current.currentSet, {
           ...validated,
+          answerIndices,
           elapsedMs: duration,
           now: at,
         });
@@ -368,6 +404,7 @@ export function createPracticeController(
         reconcile(snapshot);
         return false;
       }
+      store.set(practiceSelectionAtom, null);
       store.set(practiceElapsedAtom, saved.elapsedMs);
       if (saved.status === 'completed') {
         clearTimer();
@@ -395,6 +432,7 @@ export function createPracticeController(
           elapsedMs: Math.max(run.elapsedMs, duration),
         }, at);
       });
+      store.set(practiceSelectionAtom, null);
       return true;
     }),
     pause: () => {
@@ -417,6 +455,7 @@ export function createPracticeController(
       return userAction(async () => {
         await persistPause();
         store.set(practiceSelectedIdAtom, null);
+        store.set(practiceSelectionAtom, null);
         return true;
       });
     },
@@ -425,11 +464,13 @@ export function createPracticeController(
     reconcile,
     prepareReplacement: async () => {
       freeze();
+      store.set(practiceSelectionAtom, null);
       await enqueue(async () => true);
     },
     dispose: () => {
       disposed = true;
       freeze();
+      store.set(practiceSelectionAtom, null);
       store.set(controllerAtom, null);
     },
   };

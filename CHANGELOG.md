@@ -6,12 +6,14 @@
 
 ### Bug Fixes
 
+* Label all web answer choices and report entries with uppercase letters, matching the CLI and continuing with E after D instead of switching to numeric labels.
 * Keep development toolchain pins in `.prototools` rather than the published manifest; move Husky to manual `prepare` setup and remove `pinst` so consumer installs do not execute development hooks.
 * Support plain HTTP on LAN hostnames and IP addresses by generating practice identities with `crypto.getRandomValues()` and hashing question sets with portable SHA-256, preserving existing saved progress.
 * Run Vercel installs and builds with the committed Yarn 4.18.1 release, preserving the immutable lockfile and scoped stylesheet resolution without Corepack. Explicitly serve Vite's `dist/web` output.
 
 ### Features
 
+* Support multiple correct answers in web and CLI learning/practice with progressive acceptance: any wrong selection immediately records an incorrect outcome, while correct choices accumulate until all are selected. Remove separate submission, keep single-answer choices immediate, and show all selected choices in reports. Preserve existing single-answer progress through atomic storage upgrades.
 * Use the proportional MonoLisa Text font throughout the web interface, with self-hosted variable regular and italic Latin subsets reused from the omnirepo website.
 * Configure Vite's development server host allowlist with the Zod-parsed, comma-separated `VITE_ALLOWED_HOSTS` environment variable.
 * Add a touch-friendly outlined question-set file picker button and drag-and-drop guidance in the footer on every web page.

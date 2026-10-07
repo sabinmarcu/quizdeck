@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { questionSetSchema } from './question-set';
+import {
+  isCorrectSelection,
+  questionSetSchema,
+} from './question-set';
 import type {
   Question,
   QuestionSet,
@@ -7,9 +10,13 @@ import type {
 
 const integer = z.number().int().nonnegative().safe();
 const identity = z.string().min(1);
+export const answerIndicesSchema = z.array(integer).min(1).refine(
+  (indices) => new Set(indices).size === indices.length,
+  'Selected answers must be distinct',
+).transform((indices) => indices.toSorted((first, second) => first - second));
 export const answerSchema = z.strictObject({
   questionId: z.number().int().positive().safe(),
-  answerIndex: integer,
+  answerIndices: answerIndicesSchema,
   outcome: z.enum(['correctly_answered', 'incorrectly_answered']),
 });
 export const learningSchema = answerSchema;
@@ -59,7 +66,7 @@ export const ownerSchema = z.strictObject({
   expiresAt: integer,
 });
 export const snapshotSchema = z.strictObject({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   revision: integer,
   currentSet: questionSetSchema.nullable(),
   learning: z.array(learningSchema),
@@ -78,7 +85,7 @@ const questionIndexes = new WeakMap<QuestionSet, ReadonlyMap<number, Question>>(
 
 export function emptySnapshot(): Snapshot {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     currentSet: null,
     learning: [],
@@ -101,8 +108,11 @@ function questionIndex(set: QuestionSet): ReadonlyMap<number, Question> {
 }
 
 function validateAnswer(answer: z.infer<typeof answerSchema>, set: QuestionSet) {
-  const choice = questionIndex(set).get(answer.questionId)?.answers[answer.answerIndex];
-  if (!choice || answer.outcome !== (choice.correct ? 'correctly_answered' : 'incorrectly_answered')) {
+  const question = questionIndex(set).get(answer.questionId);
+  if (!question || answer.answerIndices.some((index) => !question.answers[index])
+    || answer.outcome !== (isCorrectSelection(question, answer.answerIndices)
+      ? 'correctly_answered'
+      : 'incorrectly_answered')) {
     throw new Error('Recorded answer or correctness does not match its question set');
   }
 }

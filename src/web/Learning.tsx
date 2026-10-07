@@ -85,8 +85,6 @@ function positiveSafeInteger(value: string) {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-const answerKeys = ['a', 'b', 'c', 'd'] as const;
-
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) {
     return false;
@@ -289,14 +287,15 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   }, []);
 
   const commitAnswer = useCallback(async (answerIndex: number) => {
-    if (!detail || detail.status !== 'unanswered' || pending) {
+    const choice = detail?.choices[answerIndex];
+    if (!detail || detail.status !== 'unanswered' || pending || !choice || choice.selected) {
       return;
     }
-    const saved = await answerQuestion({
+    const accepted = await answerQuestion({
       questionId: detail.id,
       answerIndex,
     });
-    if (saved) {
+    if (accepted) {
       requestAnimationFrame(() => {
         document.querySelector<HTMLElement>('#learning-question')?.focus();
       });
@@ -509,12 +508,19 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
         }
         return;
       }
-      if (event.key === 'Enter' && event.target instanceof HTMLButtonElement) {
+      if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
+        if (detail?.status === 'unanswered' && !event.repeat) {
+          event.preventDefault();
+          await commitAnswer(answerFocus);
+        }
         return;
       }
       const index = learningAnswerIndex(event.key);
       if (detail && index !== null && index < detail.choices.length) {
         event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
         await commitAnswer(index);
       }
     };
@@ -594,7 +600,8 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             <p className={questionText}>{detail.description}</p>
             <ol className={answerList} aria-label="Answer choices">
               {detail.choices.map((choice, index) => {
-                const letter = answerKeys[index] ?? String(index + 1);
+                const letter = String.fromCodePoint(65 + index);
+                const { selected } = choice;
                 return (
                   <li key={`${detail.id}-${choice.text}`}>
                     <button
@@ -608,19 +615,21 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
                       aria-describedby={choice.feedback
                         ? `feedback-${detail.id}-${index}`
                         : undefined}
+                      aria-pressed={selected}
                       className={answer}
                       data-correct={choice.feedback?.correct}
-                      disabled={answered || pending}
+                      disabled={answered || pending || selected}
                       type="button"
                       onClick={async () => { await commitAnswer(index); }}
                       onFocus={() => { setAnswerFocus(index); }}
                     >
                       <span className={answerLabel}>
-                        {letter.toUpperCase()}
+                        {letter}
                         .
                         {' '}
                         {choice.text}
                       </span>
+                      {selected && !choice.feedback && <span>Selected answer.</span>}
                       {choice.feedback && (
                         <span className={feedback} id={`feedback-${detail.id}-${index}`}>
                           <span className={feedbackText}>
@@ -701,7 +710,10 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
     <section className={root} aria-labelledby="learning-heading">
       <header>
         <h2 id="learning-heading">Learn</h2>
-        <p>Choose each answer once. Feedback appears after your answer is saved.</p>
+        <p>
+          Every choice is accepted immediately: an incorrect choice ends the question, while
+          correct choices on multiple-answer questions accumulate until all are selected.
+        </p>
       </header>
       <div className={controls}>
         <label className={search} htmlFor="learning-search">

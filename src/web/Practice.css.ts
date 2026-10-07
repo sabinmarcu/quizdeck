@@ -135,6 +135,7 @@ export const answer = style({
   textAlign: 'start',
   selectors: {
     '&[aria-pressed="true"]': {
+      background: theme.colors.info.muted,
       borderColor: theme.colors.info.base,
     },
     '&:disabled': {

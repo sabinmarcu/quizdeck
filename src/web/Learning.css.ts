@@ -441,6 +441,10 @@ export const answer = style({
       color: theme.colors.error.base,
       borderColor: theme.colors.error.base,
     },
+    '&[aria-pressed="true"]': {
+      background: theme.colors.info.muted,
+      borderColor: theme.colors.info.base,
+    },
     '&:focus-visible': focusOutline,
     '&:disabled': {
       cursor: 'not-allowed',

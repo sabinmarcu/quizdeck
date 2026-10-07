@@ -4,7 +4,10 @@ import {
   expect,
   it,
 } from 'vitest';
-import { questionAction } from './question-presentation';
+import {
+  questionAction,
+  questionContentLines,
+} from './question-presentation';
 
 const unmodified: Key = {
   upArrow: false,
@@ -70,6 +73,44 @@ describe('shared CLI question interactions', () => {
       delete: true,
     })).toBeNull();
     expect(questionAction('ab', unmodified)).toBeNull();
+  });
+
+  it('maps every multi-answer activation to one choice selection', () => {
+    expect(questionAction('D', unmodified, true)).toEqual({
+      type: 'answer',
+      index: 3,
+    });
+    expect(questionAction(' ', unmodified, true)).toEqual({
+      type: 'answer',
+      index: null,
+    });
+    expect(questionAction('', {
+      ...unmodified,
+      return: true,
+    }, true)).toEqual({
+      type: 'answer',
+      index: null,
+    });
+  });
+
+  it('shows accepted progressive selections without correctness feedback', () => {
+    const lines = questionContentLines({
+      title: 'Question 1',
+      description: 'Choose every applicable answer.',
+      canAnswer: true,
+      choices: [
+        {
+          text: 'First choice',
+          selected: true,
+        },
+        {
+          text: 'Second choice',
+          selected: false,
+        },
+      ],
+    }, 80).map((line) => line.text);
+    expect(lines).toContain('  A. First choice [selected]');
+    expect(lines.join('\n')).not.toContain('correct');
   });
 
   it('ignores releases, repeated answers, and modified shortcuts while allowing held focus movement', () => {

@@ -2,6 +2,7 @@ import { atom } from 'jotai';
 import { z } from 'zod';
 import type { QuestionSet } from '../data/question-set';
 import type { LearningAnswer } from '../data/records';
+import { selectionOutcome } from '../data/question-set';
 import {
   actionErrorAtom,
   commitAtom,
@@ -15,6 +16,7 @@ import {
   learningQuestionIdAtom,
   learningDetailOrderAtom,
   learningResetOpenAtom,
+  learningSelectionAtom,
 } from './learning-state';
 
 export type LearningStatus = LearningAnswer['outcome'] | 'unanswered';
@@ -28,12 +30,14 @@ export const learningStatusLabels: Record<LearningStatus | 'all' | 'completed', 
 export interface LearningRow { id: number; description: string; status: LearningStatus }
 export interface LearningChoice {
   text: string;
+  selected: boolean;
   feedback: null | { selected: boolean; correct: boolean; justification: string };
 }
 export interface LearningDetail {
   id: number;
   description: string;
   status: LearningStatus;
+  multiple: boolean;
   choices: LearningChoice[];
 }
 
@@ -126,15 +130,19 @@ export const learningDetailAtom = atom<LearningDetail | null>((get) => {
   if (!question) {
     return null;
   }
+  const selection = get(learningSelectionAtom);
   return {
     id: question.id,
     description: question.description,
     status: saved?.outcome ?? 'unanswered',
+    multiple: question.answers.reduce((count, answer) => count + Number(answer.correct), 0) > 1,
     choices: question.answers.map((answer, index) => ({
       text: answer.text,
+      selected: saved?.answerIndices.includes(index)
+        ?? (selection?.questionId === id && selection.answerIndices.includes(index)),
       feedback: saved
         ? {
-          selected: saved.answerIndex === index,
+          selected: saved.answerIndices.includes(index),
           correct: answer.correct,
           justification: answer.justification || 'No explanation provided in the source.',
         }
@@ -158,6 +166,9 @@ export const openLearningQuestionAtom = atom(null, (get, set, questionId: number
   if (startup.status !== 'ready' || !questionsById(startup.set).has(questionId)) {
     return;
   }
+  if (get(learningQuestionIdAtom) !== questionId) {
+    set(learningSelectionAtom, null);
+  }
   if (get(learningQuestionIdAtom) === null
     || !get(learningDetailOrderAtom).includes(questionId)) {
     set(learningDetailOrderAtom, get(learningRowsAtom).map((row) => row.id));
@@ -179,7 +190,7 @@ export const answerLearningAtom = atom(null, async (get, set, input: LearningAns
   try {
     const validated = z.strictObject({
       questionId: z.number().int().positive(),
-      answerIndex: z.number().int().nonnegative(),
+      answerIndex: z.number().int().nonnegative().safe(),
     }).parse(input);
     const startup = get(startupAtom);
     if (startup.status !== 'ready') {
@@ -192,18 +203,33 @@ export const answerLearningAtom = atom(null, async (get, set, input: LearningAns
       throw new Error('This question is already answered. Reset all learning progress to answer again.');
     }
     const question = questionsById(startup.set).get(validated.questionId);
-    const choice = question?.answers[validated.answerIndex];
-    if (!choice) {
+    if (!question || !question.answers[validated.answerIndex]) {
       throw new Error('That answer is not available for this question.');
+    }
+    const selection = get(learningSelectionAtom);
+    const previous = selection?.questionId === validated.questionId ? selection.answerIndices : [];
+    if (previous.includes(validated.answerIndex)) {
+      return true;
+    }
+    const answerIndices = [...previous, validated.answerIndex];
+    const outcome = selectionOutcome(question, answerIndices);
+    if (outcome === null) {
+      set(learningSelectionAtom, {
+        questionId: validated.questionId,
+        answerIndices,
+      });
+      set(actionErrorAtom, null);
+      return true;
     }
     await set(commitAtom, [{
       kind: 'putLearning',
       answer: {
         questionId: validated.questionId,
-        answerIndex: validated.answerIndex,
-        outcome: choice.correct ? 'correctly_answered' : 'incorrectly_answered',
+        answerIndices,
+        outcome,
       },
     }]);
+    set(learningSelectionAtom, null);
     return true;
   } catch (error) {
     set(actionErrorAtom, error instanceof Error ? error.message : 'The answer could not be saved.');
@@ -217,6 +243,7 @@ export const resetLearningAtom = atom(null, async (get, set) => {
   }
   try {
     await set(commitAtom, [{ kind: 'clearLearning' }]);
+    set(learningSelectionAtom, null);
     set(learningResetOpenAtom, false);
     return true;
   } catch (error) {

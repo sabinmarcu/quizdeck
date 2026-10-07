@@ -4,6 +4,8 @@ import type {
   QuestionSet,
 } from './question-set';
 import type { PracticeRun } from './records';
+import { selectionOutcome } from './question-set';
+import { answerIndicesSchema } from './records';
 
 const textEncoder = new TextEncoder();
 
@@ -74,7 +76,7 @@ export function createPracticeRun(set: QuestionSet, id: string, now: number): Pr
 export namespace answerPracticeRun {
   export interface Input {
     position: number;
-    answerIndex: number;
+    answerIndices: number[];
     elapsedMs: number;
     now: number;
   }
@@ -92,14 +94,18 @@ export function answerPracticeRun(
     throw new Error('Only the current unanswered practice question accepts an answer.');
   }
   const question = set.questions.find((entry) => entry.id === run.questionIds[input.position]);
-  const choice = question?.answers[input.answerIndex];
-  if (!Number.isInteger(input.answerIndex) || !choice) {
+  const answerIndices = answerIndicesSchema.parse(input.answerIndices);
+  if (!question || answerIndices.some((index) => !question.answers[index])) {
     throw new Error('That answer does not exist for this practice question.');
+  }
+  const outcome = selectionOutcome(question, answerIndices);
+  if (outcome === null) {
+    return run;
   }
   const answers = [...run.answers, {
     questionId: question.id,
-    answerIndex: input.answerIndex,
-    outcome: choice.correct ? 'correctly_answered' as const : 'incorrectly_answered' as const,
+    answerIndices,
+    outcome,
   }];
   const nextUnanswered = answers.length;
   const completed = nextUnanswered === length;
@@ -164,7 +170,7 @@ export function practiceReport(run: PracticeRun, set: QuestionSet): PracticeRepo
           const choice = question.answers[choiceIndex]!;
           return {
             text: choice.text,
-            selected: answer.answerIndex === choiceIndex,
+            selected: answer.answerIndices.includes(choiceIndex),
             correct: choice.correct,
             justification: choice.justification || 'No explanation provided in the source.',
           };

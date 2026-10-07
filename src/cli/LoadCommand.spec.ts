@@ -67,7 +67,7 @@ async function seedProgress(): Promise<void> {
         kind: 'putLearning',
         answer: {
           questionId: 1,
-          answerIndex: 0,
+          answerIndices: [0],
           outcome: 'correctly_answered',
         },
       }],

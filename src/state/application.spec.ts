@@ -82,7 +82,7 @@ describe('Jotai committed progress projections', () => {
     const question = loaded.set.questions[0]!;
     const answer = {
       questionId: question.id,
-      answerIndex: question.answers.findIndex((choice) => choice.correct),
+      answerIndices: [question.answers.findIndex((choice) => choice.correct)],
       outcome: 'correctly_answered' as const,
     };
     await first.store.set(commitAtom, [{

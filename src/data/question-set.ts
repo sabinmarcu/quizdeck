@@ -7,13 +7,14 @@ const instantSchema = z.number().int().nonnegative().safe();
 export const questionSchema = z.strictObject({
   id: z.number().int().positive().safe(),
   description: textSchema,
+  justification: z.string().optional(),
   answers: z.array(z.strictObject({
     text: textSchema,
     correct: z.boolean(),
     justification: z.string(),
   }).readonly()).min(2).refine(
-    (answers) => answers.filter((answer) => answer.correct).length === 1,
-    'Each question must have exactly one correct answer',
+    (answers) => answers.some((answer) => answer.correct),
+    'Each question must have at least one correct answer',
   ).readonly(),
 }).readonly();
 
@@ -42,6 +43,22 @@ export const questionSetSchema = z.strictObject({
 
 export type Question = z.infer<typeof questionSchema>;
 export type QuestionSet = Readonly<z.infer<typeof questionSetSchema>>;
+
+export function isCorrectSelection(question: Question, answerIndices: readonly number[]): boolean {
+  return question.answers.every((answer, index) => (
+    answer.correct === answerIndices.includes(index)
+  ));
+}
+
+export function selectionOutcome(
+  question: Question,
+  answerIndices: readonly number[],
+): 'correctly_answered' | 'incorrectly_answered' | null {
+  if (answerIndices.some((index) => !question.answers[index]!.correct)) {
+    return 'incorrectly_answered';
+  }
+  return isCorrectSelection(question, answerIndices) ? 'correctly_answered' : null;
+}
 
 export async function questionContentHash(questions: readonly Question[]): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(questions));

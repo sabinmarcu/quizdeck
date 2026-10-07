@@ -14,11 +14,13 @@ import {
 } from 'vitest';
 import { SqliteProgressStorage } from '../cli/sqlite';
 import { createFixtureSet } from '../data/question-set.fixture';
+import { createQuestionSet } from '../data/question-set';
 import {
   createAppSession,
   startupAtom,
   pendingAtom,
   actionErrorAtom,
+  commitAtom,
 } from './application';
 import type { AppSession } from './application';
 import {
@@ -94,7 +96,111 @@ async function answer(current: AppSession, answerIndex = 0) {
   });
 }
 
+async function installMultipleSet(current: AppSession, count = 1) {
+  const set = await createQuestionSet(Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    description: 'Select both correct choices',
+    answers: [true, false, true].map((correct, choice) => ({
+      text: `Choice ${choice}`,
+      correct,
+      justification: '',
+    })),
+  })), {
+    name: 'Multiple',
+    source: 'file',
+    loadedAt: 0,
+  });
+  await current.store.set(commitAtom, [{
+    kind: 'replaceSet',
+    set,
+  }]);
+}
+
 describe('native persisted practice sessions', () => {
+  it.each([
+    {
+      indices: [0, 2],
+      correctCount: 1,
+    },
+    {
+      indices: [2, 2, 0],
+      correctCount: 1,
+    },
+    {
+      indices: [0, 1],
+      correctCount: 0,
+    },
+    {
+      indices: [1],
+      correctCount: 0,
+    },
+  ])('records only the terminal progressive selection $indices', async ({ indices, correctCount }) => {
+    const current = await session();
+    await installMultipleSet(current);
+    await current.practice.start();
+    const { runId } = (current.store.get(practiceViewAtom)!);
+    const selected = new Set<number>();
+    for (const [position, index] of indices.entries()) {
+      expect(await answer(current, index)).toBe(true);
+      selected.add(index);
+      if (position < indices.length - 1) {
+        const view = current.store.get(practiceViewAtom)!;
+        expect(view.position).toBe(0);
+        expect(view.canAnswer).toBe(true);
+        expect(view.choices.filter((choice) => choice.selected).map((choice) => choice.answerIndex)
+          .toSorted((first, second) => first - second))
+          .toEqual([...selected].toSorted((first, second) => first - second));
+        expect(snapshot(current).runs[0]!.answers).toEqual([]);
+        expect(current.store.get(practiceReportAtom)).toBeNull();
+      }
+    }
+    const completed = snapshot(current).runs[0]!;
+    expect(completed.result).toEqual({
+      correctCount,
+      percentage: correctCount * 100,
+    });
+    expect(completed.answers[0]!.answerIndices)
+      .toEqual([...selected].toSorted((first, second) => first - second));
+    expect(await current.practice.answer({
+      runId,
+      position: 0,
+      answerIndex: 0,
+    })).toBe(false);
+    current.close();
+    const restored = await session('restored');
+    await restored.practice.open(runId);
+    const report = restored.store.get(practiceReportAtom)!;
+    expect(report.correctCount).toBe(correctCount);
+    expect(report.questions[0]!.choices.filter((choice) => choice.selected)
+      .map((choice) => choice.text)
+      .toSorted((first, second) => first.localeCompare(second)))
+      .toEqual([...selected].map((index) => `Choice ${index}`)
+        .toSorted((first, second) => first.localeCompare(second)));
+  });
+
+  it('preserves partial selections over pause/resume but clears them on question navigation', async () => {
+    const current = await session();
+    await installMultipleSet(current, 2);
+    await current.practice.start();
+    await answer(current, 0);
+    await current.practice.pause();
+    await current.practice.resume();
+    expect(current.store.get(practiceViewAtom)!.choices
+      .find((choice) => choice.answerIndex === 0)?.selected)
+      .toBe(true);
+    await answer(current, 2);
+    expect(snapshot(current).runs[0]!.answers[0]!.outcome).toBe('correctly_answered');
+    await answer(current, 0);
+    await current.practice.view(0);
+    await current.practice.view(1);
+    const returned = current.store.get(practiceViewAtom)!;
+    expect(returned.choices.every((choice) => !choice.selected)).toBe(true);
+    await answer(current, 2);
+    expect(current.store.get(practiceReportAtom)).toBeNull();
+    await answer(current, 0);
+    expect(current.store.get(practiceReportAtom)!.correctCount).toBe(2);
+  });
+
   it('uses the saved short run length for navigation, history, completion, and scoring', async () => {
     filename = path.join(directory, 'short.sqlite');
     const storage = await SqliteProgressStorage.open({ path: filename });
@@ -182,7 +288,7 @@ describe('native persisted practice sessions', () => {
     await current.practice.view(0);
     const view = current.store.get(practiceViewAtom)!;
     expect(view.canAnswer).toBe(false);
-    const savedAnswerIndex = before.answers[0]!.answerIndex;
+    const savedAnswerIndex = before.answers[0]!.answerIndices[0];
     expect(view.choices.find((choice) => choice.answerIndex === savedAnswerIndex)?.selected)
       .toBe(true);
     expect(await answer(current, 1)).toBe(false);

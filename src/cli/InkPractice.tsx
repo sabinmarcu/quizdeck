@@ -269,7 +269,7 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
     }
   };
 
-  const submitAnswer = async (displayIndex: number) => {
+  const answerChoice = async (displayIndex: number) => {
     const choice = view?.choices[displayIndex];
     if (!view || !view.canAnswer || !choice) {
       return;
@@ -306,19 +306,26 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
       + `Enter opens it, and n starts a new ${practiceLength}-question run.`,
     'During a run, h/l or left/right move through available questions. '
       + 'The last available question is the next unanswered one; recorded answers are read-only.',
-    'On the current unanswered question, j/k selects a choice; Enter, a-d, or 1-4 saves '
-      + 'exactly that choice immediately. Holding an answer key does not answer another question.',
+    'On the current unanswered single-answer question, j/k selects a choice; Enter, a-d, or 1-4 '
+      + 'saves exactly that choice immediately. Holding an answer key does not answer another question.',
+    'For multiple-answer questions, every choice activation saves immediately: use Enter or Space '
+      + 'for the focused choice, or a-d and 1-4 for a specific choice. Correct selections remain visible.',
     'On legacy terminals, move choice focus with j/k before reusing the same answer shortcut.',
     'p pauses a run or refreshes and resumes a paused run. Esc returns to history only after '
       + 'the run is safely left.',
-    'Completed reports show every question, the dataset mapping, chosen answer, correct answers, '
+    'Completed reports show every question, the dataset mapping, selected answers, correct answers, '
       + 'and justifications. j/k scrolls the report.',
-    '? or Esc closes this help. q exits the application.',
   ].flatMap((text) => wrapLines({ text }, width));
   const helpLimit = Math.max(0, helpLines.length - viewportRows);
   useInput(async (input, key) => {
     if (key.eventType === 'release') {
-      answerGate.accept(key.return ? 'Enter' : input, key.eventType);
+      let releasedKey = input;
+      if (key.return) {
+        releasedKey = 'Enter';
+      } else if (input === ' ') {
+        releasedKey = 'Space';
+      }
+      answerGate.accept(releasedKey, key.eventType);
       return;
     }
     if (key.meta || key.super || key.hyper) {
@@ -450,7 +457,7 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
       await togglePause();
       return;
     }
-    const interaction = questionAction(navigation, key);
+    const interaction = questionAction(navigation, key, view.multiple);
     if (!interaction) {
       return;
     }
@@ -486,9 +493,12 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
         break;
       }
       case 'answer': {
-        const activation = interaction.index === null ? 'Enter' : input;
+        let activation = input;
+        if (interaction.index === null) {
+          activation = input === ' ' ? 'Space' : 'Enter';
+        }
         if (view.canAnswer && answerGate.accept(activation, key.eventType)) {
-          await submitAnswer(interaction.index ?? focusedChoice);
+          await answerChoice(interaction.index ?? focusedChoice);
         }
         break;
       }
@@ -498,13 +508,13 @@ export function InkPractice({ onExit, onQuit }: InkPractice.Props) {
     }
   });
 
-  let controls = `${questionControls} · p pause · ? help · q quit`;
+  let controls = `${questionControls(view?.multiple ?? false)} · p pause · ? help · q quit`;
   if (screen === 'history') {
     controls = 'j/k focus · gg/G boundaries · Enter open · n new run · h/Esc leave · ? help · q quit';
   } else if (screen === 'report') {
     controls = 'j/k scroll · gg/G boundaries · Esc history · ? help · q quit';
   } else if (view?.canAnswer) {
-    controls = `${questionControls} · p pause`;
+    controls = `${questionControls(view.multiple)} · p pause`;
   } else if (view?.paused) {
     controls = 'p refresh and resume · Esc history · ? help · q quit';
   }
