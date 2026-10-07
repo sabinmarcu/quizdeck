@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import {
+  afterEach,
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 import {
   createQuestionSet,
@@ -31,6 +33,10 @@ const question = {
     },
   ],
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('question set trust boundary', () => {
   it('locates duplicate source IDs on the later question rather than merging them', () => {
@@ -97,6 +103,30 @@ describe('question set trust boundary', () => {
       questions,
     });
     await expect(validateQuestionSet(set)).resolves.toEqual(set);
+  });
+
+  it('preserves SHA-256 hashes and stored set validation without crypto.subtle', async () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: crypto.getRandomValues.bind(crypto),
+    });
+    const questions = [{
+      ...question,
+      description: 'Unicode: café, 日本語, 🧠. '.repeat(20),
+    }];
+    const set = await createQuestionSet(questions, {
+      name: 'LAN Set',
+      source: 'file',
+      loadedAt: 42,
+    });
+    expect(set.contentHash).toBe(createHash('sha256').update(JSON.stringify(questions)).digest('hex'));
+    await expect(validateQuestionSet(set)).resolves.toEqual(set);
+    await expect(validateQuestionSet({
+      ...set,
+      questions: [{
+        ...questions[0],
+        description: 'Altered content',
+      }],
+    })).rejects.toThrow('hash');
   });
 
   it('rejects a stored set with altered content or count', async () => {

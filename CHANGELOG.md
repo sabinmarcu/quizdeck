@@ -19,12 +19,26 @@
 ### Bug Fixes
 
 * Keep development toolchain pins in `.prototools` rather than the published manifest; move Husky to manual `prepare` setup and remove `pinst` so consumer installs do not execute development hooks.
+* Support plain HTTP on LAN hostnames and IP addresses by generating practice identities with `crypto.getRandomValues()` and hashing question sets with portable SHA-256, preserving existing saved progress.
+* Run Vercel installs and builds with the committed Yarn 4.18.1 release, preserving the immutable lockfile and scoped stylesheet resolution without Corepack. Explicitly serve Vite's `dist/web` output.
 
 ### Features
 
+* Use the proportional MonoLisa Text font throughout the web interface, with self-hosted variable regular and italic Latin subsets reused from the omnirepo website.
+* Configure Vite's development server host allowlist with the Zod-parsed, comma-separated `VITE_ALLOWED_HOSTS` environment variable.
 * Add a touch-friendly outlined question-set file picker button and drag-and-drop guidance in the footer on every web page.
 * Show successful question-set loads as native top-right notifications that disappear after five seconds.
 * Paginate web Learn results with a 25-question default, configurable page size, boundary navigation, and safe page clamping.
+* Make learning question cards fill the content container, place wide-screen navigation arrows in the outer gutters, and use a touch-sized navigation row on narrower screens. Move secondary actions below the card and above the footer.
+* Shuffle Practice answer choices consistently across both interfaces, saved-run resumes, and reports while retaining canonical answer identity and scoring.
+* Add tall sticky learning-list pagination rails in the outer gutters, with touch-sized controls on narrower screens. Replace inline navigation buttons with a centered page-number input, right-align page status, and preserve filtering, page-size clamping, and detail-return context.
+* Add a web learning-list shortcut to the first unanswered question without changing search, filters, or existing navigation behavior.
+* Give saved web learning question cards pronounced correct/incorrect backgrounds and matching 2px borders, retaining neutral unanswered cards and readable light/dark-theme feedback.
+* Match learning question navigation to list pagination with shared centered-arrow buttons, tall sticky gutter controls on wide layouts, and touch-sized rows on narrower screens.
+* Migrate web theme setup to the new public theme/core APIs, deliver the owned stylesheet before first paint, and embed version-2 devtools manifests with editable sources and static breakpoints. Retain application typography and learning controls.
+* Scope theme-core's stylesheet resolution to 1.1.0 and preapprove only the exact migration releases, removing obsolete theme compatibility extensions without disabling global package gates.
+* Refresh the application theme's light/dark primary, success, error, and background palettes with authored OKLCH values while retaining the configured grid spacing.
+* Open the web learning list directly after storage initializes, removing the persistence acknowledgement while retaining storage requests, retention details, and startup errors.
 
 ## [1.0.1](https://github.com/sabinmarcu/quizdeck/compare/v1.0.0...v1.0.1) (2026-10-02)
 

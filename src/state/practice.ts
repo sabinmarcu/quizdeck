@@ -1,5 +1,8 @@
 import { atom } from 'jotai';
-import { practiceReport } from '../data/practice';
+import {
+  practiceAnswerOrder,
+  practiceReport,
+} from '../data/practice';
 import type { PracticeReport } from '../data/practice';
 import type { PracticeRun } from '../data/records';
 import { startupAtom } from './application';
@@ -41,7 +44,7 @@ export interface PracticeView {
   nextUnanswered: number;
   total: number;
   description: string;
-  choices: Array<{ text: string; selected: boolean }>;
+  choices: Array<{ answerIndex: number; text: string; selected: boolean }>;
   canAnswer: boolean;
   canPrevious: boolean;
   canNext: boolean;
@@ -53,6 +56,26 @@ const selectedRunAtom = atom((get) => {
   const startup = get(startupAtom);
   const id = get(practiceSelectedIdAtom);
   return startup.status === 'ready' ? startup.snapshot.runs.find((run) => run.id === id) ?? null : null;
+});
+
+const practiceRunIdAtom = atom((get) => get(selectedRunAtom)?.id ?? null);
+const practiceQuestionAtom = atom((get) => {
+  const run = get(selectedRunAtom);
+  const startup = get(startupAtom);
+  if (!run || run.status === 'completed' || startup.status !== 'ready') {
+    return null;
+  }
+  const questionId = run.questionIds[run.viewedPosition];
+  const question = startup.set.questions.find((entry) => entry.id === questionId);
+  if (!question) {
+    throw new Error('Saved practice question content is unavailable.');
+  }
+  return question;
+});
+const practiceAnswerOrderAtom = atom((get) => {
+  const runId = get(practiceRunIdAtom);
+  const question = get(practiceQuestionAtom);
+  return runId && question ? practiceAnswerOrder(runId, question) : [];
 });
 export const practiceHistoryAtom = atom<PracticeHistoryEntry[]>((get) => {
   const startup = get(startupAtom);
@@ -75,23 +98,27 @@ export const practiceViewAtom = atom<PracticeView | null>((get) => {
   if (!run || run.status === 'completed' || startup.status !== 'ready') {
     return null;
   }
-  const questionId = run.questionIds[run.viewedPosition];
-  const question = startup.set.questions.find((entry) => entry.id === questionId);
+  const question = get(practiceQuestionAtom);
   if (!question) {
-    throw new Error('Saved practice question content is unavailable.');
+    return null;
   }
   const saved = run.answers[run.viewedPosition];
   const owned = get(practiceOwnedAtom);
+  const answerOrder = get(practiceAnswerOrderAtom);
   return {
     runId: run.id,
     position: run.viewedPosition,
     nextUnanswered: run.nextUnanswered,
     total: run.questionIds.length,
     description: question.description,
-    choices: question.answers.map((choice, index) => ({
-      text: choice.text,
-      selected: saved?.answerIndex === index,
-    })),
+    choices: answerOrder.map((answerIndex) => {
+      const choice = question.answers[answerIndex]!;
+      return {
+        answerIndex,
+        text: choice.text,
+        selected: saved?.answerIndex === answerIndex,
+      };
+    }),
     canAnswer: owned && run.status === 'active' && run.viewedPosition === run.nextUnanswered,
     canPrevious: run.viewedPosition > 0,
     canNext: run.viewedPosition < run.nextUnanswered,

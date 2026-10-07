@@ -182,7 +182,9 @@ describe('native persisted practice sessions', () => {
     await current.practice.view(0);
     const view = current.store.get(practiceViewAtom)!;
     expect(view.canAnswer).toBe(false);
-    expect(view.choices[0]!.selected).toBe(true);
+    const savedAnswerIndex = before.answers[0]!.answerIndex;
+    expect(view.choices.find((choice) => choice.answerIndex === savedAnswerIndex)?.selected)
+      .toBe(true);
     expect(await answer(current, 1)).toBe(false);
     expect(snapshot(current).runs[0]!.answers).toEqual(before.answers);
     expect(await current.practice.view(3)).toBe(false);

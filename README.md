@@ -31,6 +31,32 @@ yarn start:cli web   # Serve the built web application
 yarn run quizdeck --help  # Built Node entry exposed through the package script
 ```
 
+Set `VITE_ALLOWED_HOSTS` to a comma-separated list of domains to allow additional
+hosts through Vite's development server host check:
+
+```sh
+VITE_ALLOWED_HOSTS=quizdeck.example.com,study.example.com yarn dev:web
+```
+
+The variable can also be set in Vite's mode-specific `.env` files. Zod parses it
+when the configuration loads, trimming whitespace and ignoring empty entries.
+An unset or empty value preserves Vite's default host restrictions; localhost
+and IP addresses remain allowed. Use hostnames without URL schemes or ports.
+This setting does not change the server's bind address or configure the built
+CLI's `web` server.
+
+For development access from another device on your LAN, also set the bind address:
+
+```sh
+VITE_ALLOWED_HOSTS=devbox.router.local yarn dev:web --host 0.0.0.0
+```
+
+Plain HTTP on a LAN hostname or IP address supports startup, question-set imports,
+and practice. Session/run IDs use `crypto.getRandomValues()`, and content hashes
+use portable SHA-256 rather than secure-context-only browser APIs. Existing saved
+hashes and runs remain compatible. Progress is separate for each browser origin.
+Retention status is available under Extras → Storage and does not block Learn.
+
 `yarn dev:cli` also launches the source Ink command. `yarn cli web` serves the same
 built web application; it does not start Vite or build missing assets. Run
 `yarn build` first. The built CLI keeps dependencies external, so it requires the
@@ -104,8 +130,8 @@ The top-level order is **Learn**, **Practice**, then **Extras**. Extras contains
   Escape closes Extras or returns to the parent/menu focus; Ctrl-d/u scrolls.
 - CLI: `q` or Ctrl-C exits; `r` retries after a storage error.
 - Web: Tab, click, and touch work alongside shortcuts. Text editing and composition
-  do not trigger character shortcuts. A denied persistent-retention request must
-  be acknowledged before entering the shell.
+  do not trigger character shortcuts. Once local storage is ready, the web app
+  opens Learn directly without a persistence acknowledgement.
 
 Extras → Overview reports the current set's name, demo/file source, load time,
 question/answer counts, and saved-record counts. Extras → Storage shows the backend,
@@ -118,14 +144,38 @@ Open **Learn** in either interface. Search by source question number or descript
 and filter All, Unanswered, Completed, Correctly answered, or Incorrectly answered.
 Completed/total counts remain independent of the current search results.
 
+In the web learning list, **Resume learning** opens the lowest-numbered unanswered
+question in the loaded set, independently of the current search, status filter,
+or list page. It leaves search and filter values unchanged and reuses the existing
+question navigation and back-to-list behavior. The button is disabled when every
+question is answered and becomes available again after resetting learning progress.
+
 Web Learn lists show 25 questions per page by default. **First page**, **Previous
-page**, **Next page**, and **Last page** navigate the filtered results. **Items per
-page** accepts positive whole numbers; invalid input keeps the last valid page
-size. When a size change or filtering reduces the page count, the current page
-clamps to the last available page. For example, page 4 of 175 questions at 25 per
-page becomes page 2 at 100 per page. List keyboard shortcuts stay within the
-visible page; returning from detail shows and focuses the current question's page.
-Pagination does not apply to Practice or the CLI.
+page**, **Next page**, and **Last page** navigate the filtered results. On wide
+screens, first/previous and next/last form tall sticky rails in the outer gutters,
+without reducing the Learn card's width. Narrow layouts use a touch-sized row
+above the results. The **Page number** input is centered and the page/result
+summary is right-aligned; narrow layouts stack these controls without overflow.
+Enter a whole page number and press Enter or leave the field to jump. Invalid
+values keep the current page; Escape restores its number. Empty results disable
+the page input and all four navigation buttons.
+
+**Items per page** accepts positive whole numbers; invalid input keeps the last
+valid page size. When a size change or filtering reduces the page count, the
+current page and page-number input clamp to the last available page. For example,
+page 4 of 175 questions at 25 per page becomes page 2 at 100 per page. List keyboard
+shortcuts stay within the visible page; returning from detail shows and focuses
+the current question's page. Pagination does not apply to Practice or the CLI.
+
+Web question cards fill the content container. Question previous/next controls
+share the learning-list button styling, with arrows centered on both axes. Wide
+layouts use tall sticky controls in the outer gutters; narrower layouts use a
+touch-sized navigation row below the card.
+**Back to list**, **Keyboard help**, and **Reset all learning progress** sit below
+the card/navigation and above the question-set loading footer.
+Saved web learning question cards use pronounced green or red backgrounds and
+matching 2px borders for correct or incorrect outcomes. Unanswered cards remain neutral;
+status labels and individual answer-choice feedback remain visible alongside color.
 
 Opening a question or moving choice focus does not complete it. Activate a choice
 with Enter, a–d/1–4, or a web button; there is no separate submit step. The answer
@@ -172,6 +222,12 @@ Open **Practice** and start a new run or resume/review an existing one. Each new
 run saves a randomized order of **min(60, N) distinct questions**, where N is the
 current set's question count. The demo yields a three-question run. Runs are
 independent; starting another does not replace history.
+
+Practice also shuffles answer choices in both interfaces. The run and question
+identities determine a stable display order across review, pause/resume, reload,
+and completed reports. Choice shortcuts refer to that displayed order, while
+saved answers retain their original dataset indices for scoring. Learning keeps
+the source answer order; existing saved progress requires no schema migration.
 
 Activate an answer once with a choice button, Enter, or a–d/1–4. A successful
 transaction records the answer and advances to the next unanswered question.
@@ -257,9 +313,11 @@ practice run returns to history with a notice. Its timer stops; later checkpoint
 never recreate it. Repeated loads of identical content still reset all progress.
 
 Browser persistent retention is requested. Denied or unavailable retention means
-best-effort storage, not an in-memory fallback. Site-data clearing, private-session
-teardown, or browser eviction can still remove browser progress. Unavailable storage
-is an explicit startup error. SQLite files can likewise be deleted or lost.
+best-effort storage, not an in-memory fallback. Learn opens directly without an
+acknowledgement; Extras → Storage reports retention. Site-data clearing,
+private-session teardown, or browser eviction can still remove browser progress.
+Unavailable storage remains an explicit startup error. SQLite files can likewise
+be deleted or lost.
 
 ## Question set
 
@@ -452,6 +510,30 @@ Sources: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 and [Husky manual setup](https://typicode.github.io/husky/how-to.html#manual-setup).
 
 
+## Vercel deployments
+
+Vercel uses the committed `.yarn/releases/yarn-4.18.1.cjs` release rather than its
+preinstalled Yarn or Corepack. `.yarnrc.yml` points `yarnPath` at that release;
+local Proto and GitHub CI continue using the same pinned version.
+
+`vercel.json` overrides the install and build commands with:
+
+```sh
+node .yarn/releases/yarn-4.18.1.cjs install --immutable
+node .yarn/releases/yarn-4.18.1.cjs build
+```
+
+The output directory is `dist/web`, matching Vite's configured build output.
+Keep `ENABLE_EXPERIMENTAL_COREPACK` disabled (`0` or unset) for the deployment
+environments. The immutable install preserves the checked-in lockfile and the
+scoped stylesheet resolution; do not fall back to Yarn Classic or rewrite it.
+
+When upgrading Yarn, keep `packageManager`, `.prototools`, `yarnPath`, the committed
+release, and the explicit paths in `vercel.json` aligned. Commit the release file;
+a missing binary makes deployment installation fail.
+
+Source: [Vercel's committed Yarn-release support](https://vercel.com/kb/guide/does-vercel-support-yarn-4).
+
 ## Checks and tooling
 
 ```sh
@@ -470,10 +552,33 @@ validates Conventional Commits. VS Code uses ESLint, not Prettier. Tests use
 explicit Vitest imports in colocated specs. Compiler configurations split base,
 editor/typecheck, and source build scope.
 
-Web components use Vanilla Extract and `@sabinmarcu/theme`; theme values and public
-contract aliases are initialized before rendering. Theme 1.2.4 is pinned because
-1.2.5 omits its declared built entry points; unused MUI and Storybook integrations
-are marked optional.
+Web styles use Vanilla Extract, `@sabinmarcu/theme` 1.3.0, and
+`@sabinmarcu/theme-core` 1.0.0. `src/web/theme.ts` owns the source inputs and extends
+the shared contract with static breakpoints. Primary, success, error, and background
+palettes use authored OKLCH light/dark values. Other palettes keep their configured
+colors; spacing, typography, and learning controls are retained. Derived colors
+use native CSS.
+
+Vite emits the `quizdeck-theme` stylesheet and version-2
+`script[type="application/json"][data-theme-manifests]` metadata into the HTML head
+for both development and production. Styles are available before application
+JavaScript runs. The page consumes those allocations directly, without a redundant
+browser theme remount or value cache. Optional external devtools discover and edit
+the actual owned stylesheet; no inspector UI is added to Quizdeck. Static
+breakpoints and derived tokens are read-only. Native CSS requires current Chromium
+and Safari 26+; native Safari/iOS verification remains waived as noted above.
+
+The root `package.json` narrowly resolves
+`@sabinmarcu/theme-core@npm:1.0.0/@sabinmarcu/stylesheet` to `1.1.0`, replacing core's
+incompatible `1.0.3` pin without overriding other consumers. Remove this override
+when upgrading to a core release with a compatible upstream pin. `.yarnrc.yml`
+preapproves only these three exact migration releases for the existing package
+gates; the global gates remain enabled. `yarn why @sabinmarcu/stylesheet` shows the
+resolved edge, and `yarn install --immutable` verifies the lockfile.
 
 Known upstream tooling warning: the shared ESLint config requires ESLint 9 while
 its Unicorn dependency declares ESLint 10.4+. The configured lint command passes.
+
+Vite's bundled config loader supports the repository's extensionless imports but
+warns that a future native-loader default will require explicit extensions. The
+shared ESLint import policy remains unchanged; this warning is not suppressed.

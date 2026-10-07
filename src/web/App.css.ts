@@ -1,10 +1,12 @@
 import { style } from '@vanilla-extract/css';
-import { theme } from '@sabinmarcu/theme/theme';
+import { theme } from './theme';
+
+export const shellMaxInlineSize = '72rem';
 
 export const shell = style({
   display: 'grid',
   gap: theme.grid.l,
-  inlineSize: 'min(100%, 72rem)',
+  inlineSize: `min(100%, ${shellMaxInlineSize})`,
   marginInline: 'auto',
   padding: theme.grid.xl,
 });

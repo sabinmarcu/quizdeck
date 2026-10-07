@@ -1,5 +1,20 @@
-import { style } from '@vanilla-extract/css';
-import { theme } from '@sabinmarcu/theme/theme';
+import {
+  globalStyle,
+  style,
+} from '@vanilla-extract/css';
+import {
+  queryGrid,
+  theme,
+} from './theme';
+import { shellMaxInlineSize } from './App.css';
+
+const arrowGutter = `calc(${queryGrid.xl} + ${queryGrid.m} + ${queryGrid.s})`;
+const sideNavigationWidth = `calc(${shellMaxInlineSize} + 2 * ${arrowGutter})`;
+const sideNavigationQuery = `quizdeck-viewport (min-width: ${sideNavigationWidth})`;
+const pageRailWidth = `calc(2 * (${queryGrid.xl} + ${queryGrid.m}) + ${queryGrid.s})`;
+const pageRailGutter = `calc(${pageRailWidth} + ${queryGrid.s})`;
+const pageNavigationWidth = `calc(${shellMaxInlineSize} + 2 * ${pageRailGutter})`;
+const pageNavigationQuery = `quizdeck-viewport (min-width: ${pageNavigationWidth})`;
 
 const focusOutline = {
   outline: `${theme.grid.xs} solid ${theme.colors.info.base}`,
@@ -22,6 +37,36 @@ export const root = style({
   gap: theme.grid.l,
   minInlineSize: 0,
   padding: theme.grid.l,
+  position: 'relative',
+});
+
+export const detailRoot = style({
+  display: 'grid',
+  gap: theme.grid.l,
+  minInlineSize: 0,
+});
+
+export const detailLayout = style({
+  alignItems: 'center',
+  display: 'grid',
+  gap: theme.grid.l,
+  gridTemplateColumns: 'minmax(0, 1fr)',
+  minInlineSize: 0,
+  position: 'relative',
+});
+
+export const secondaryActions = style({
+  alignItems: 'center',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: theme.grid.s,
+  inlineSize: '100%',
+  justifySelf: 'center',
+  minInlineSize: 0,
+});
+
+globalStyle(`${secondaryActions} > button`, {
+  minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
 });
 
 export const controls = style({
@@ -82,17 +127,30 @@ export const select = style({
 
 export const pagination = style({
   alignItems: 'end',
-  display: 'flex',
-  flexWrap: 'wrap',
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   gap: theme.grid.m,
   minInlineSize: 0,
+  '@container': {
+    [theme.breakpoint.gt.mobile]: {
+      gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+    },
+  },
 });
 
 export const itemsPerPage = style({
   display: 'grid',
-  flex: '0 1 8rem',
+  inlineSize: 'min(100%, 8rem)',
   gap: theme.grid.xs,
   minInlineSize: 0,
+});
+
+export const pageNumber = style([itemsPerPage, {
+  justifySelf: 'center',
+}]);
+
+globalStyle(`${pageNumber} > input`, {
+  textAlign: 'center',
 });
 
 export const pageInput = style([input, {
@@ -111,9 +169,10 @@ export const paginationError = style({
 });
 
 export const paginationStatus = style({
-  flex: '1 1 14rem',
+  justifySelf: 'end',
   margin: 0,
   minInlineSize: 0,
+  textAlign: 'end',
 });
 
 export const buttonRow = style({
@@ -165,8 +224,61 @@ export const secondaryButton = style({
 });
 
 export const pageButton = style([secondaryButton, {
+  alignItems: 'center',
+  display: 'flex',
+  fontSize: theme.grid.xl,
+  inlineSize: '100%',
+  justifyContent: 'center',
+  lineHeight: 1,
   minBlockSize: `calc(${theme.grid.xl} + ${theme.grid.m})`,
+  minInlineSize: 0,
+  padding: theme.grid.xs,
 }]);
+
+export const pageNavigation = style({
+  display: 'grid',
+  gap: theme.grid.s,
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  minInlineSize: 0,
+  '@container': {
+    [pageNavigationQuery]: {
+      gridTemplateColumns: `${pageRailWidth} minmax(0, 1fr) ${pageRailWidth}`,
+      insetBlock: 0,
+      insetInline: `calc(-1 * (${theme.grid.xl} + ${pageRailWidth}))`,
+      pointerEvents: 'none',
+      position: 'absolute',
+    },
+  },
+});
+
+export const pageRail = style({
+  display: 'grid',
+  gap: theme.grid.s,
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  minInlineSize: 0,
+  '@container': {
+    [pageNavigationQuery]: {
+      alignSelf: 'start',
+      blockSize: 'min(70dvh, 100%)',
+      insetBlockStart: theme.grid.l,
+      pointerEvents: 'auto',
+      position: 'sticky',
+    },
+  },
+});
+
+export const previousPages = style({
+  gridColumn: 1,
+});
+
+export const nextPages = style({
+  gridColumn: 2,
+  '@container': {
+    [pageNavigationQuery]: {
+      gridColumn: 3,
+    },
+  },
+});
 
 export const counts = style({
   display: 'flex',
@@ -217,9 +329,70 @@ export const rowMeta = style({
 });
 
 export const question = style({
+  background: theme.colors.background.surface,
+  borderInlineStart: `1px solid ${theme.colors.primary.muted}`,
+  borderInlineEnd: `1px solid ${theme.colors.primary.muted}`,
+  borderBlockStart: `1px solid ${theme.colors.primary.muted}`,
+  borderBlockEnd: `1px solid ${theme.colors.primary.muted}`,
+  borderRadius: theme.grid.s,
   display: 'grid',
   gap: theme.grid.l,
+  gridColumn: '1 / -1',
   minInlineSize: 0,
+  padding: theme.grid.l,
+  selectors: {
+    '&[data-outcome="correctly_answered"]': {
+      background: `color-mix(in oklab, ${theme.colors.success.emphasis} 30%, ${theme.colors.background.page})`,
+      borderColor: theme.colors.success.emphasis,
+      borderWidth: 2,
+    },
+    '&[data-outcome="incorrectly_answered"]': {
+      background: `color-mix(in oklab, ${theme.colors.error.emphasis} 30%, ${theme.colors.background.page})`,
+      borderColor: theme.colors.error.emphasis,
+      borderWidth: 2,
+    },
+  },
+});
+
+export const questionNavigation = style({
+  display: 'grid',
+  gap: theme.grid.s,
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  minInlineSize: 0,
+  '@container': {
+    [sideNavigationQuery]: {
+      gridTemplateColumns: `calc(${theme.grid.xl} + ${theme.grid.m}) minmax(0, 1fr) calc(${theme.grid.xl} + ${theme.grid.m})`,
+      insetBlock: 0,
+      insetInline: `calc(-1 * (${theme.grid.xl} + ${theme.grid.m} + ${theme.grid.xl}))`,
+      pointerEvents: 'none',
+      position: 'absolute',
+    },
+  },
+});
+
+export const navigationArrow = style([pageButton, {
+  '@container': {
+    [sideNavigationQuery]: {
+      alignSelf: 'start',
+      blockSize: 'min(70dvh, 100%)',
+      insetBlockStart: theme.grid.l,
+      position: 'sticky',
+      pointerEvents: 'auto',
+    },
+  },
+}]);
+
+export const previousArrow = style({
+  gridColumn: 1,
+});
+
+export const nextArrow = style({
+  gridColumn: 2,
+  '@container': {
+    [sideNavigationQuery]: {
+      gridColumn: 3,
+    },
+  },
 });
 
 export const questionHeading = style({

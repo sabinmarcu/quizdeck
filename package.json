@@ -47,6 +47,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@stablelib/sha256": "^2.0.1",
     "clipanion": "^4.0.0-rc.4",
     "ink": "^7.1.1",
     "jotai": "^3.0.1",
@@ -55,11 +56,15 @@
     "wrap-ansi": "^10.0.2",
     "zod": "^4.6.5"
   },
+  "resolutions": {
+    "@sabinmarcu/theme-core@npm:1.0.0/@sabinmarcu/stylesheet": "1.1.0"
+  },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@sabinmarcu/eslint-config": "3.4.3",
-    "@sabinmarcu/theme": "1.2.4",
+    "@sabinmarcu/theme": "1.3.0",
+    "@sabinmarcu/theme-core": "1.0.0",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/git": "^11.0.1",
     "@types/eslint-plugin-jsx-a11y": "^6",

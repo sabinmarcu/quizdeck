@@ -4,11 +4,15 @@ import {
   expect,
   it,
 } from 'vitest';
-import type { QuestionSet } from './question-set';
+import type {
+  Question,
+  QuestionSet,
+} from './question-set';
 import { createFixtureSet } from './question-set.fixture';
 import {
   answerPracticeRun,
   createPracticeRun,
+  practiceAnswerOrder,
   practiceReport,
   samplePracticeQuestions,
 } from './practice';
@@ -43,6 +47,18 @@ function run(set: QuestionSet): PracticeRun {
   };
 }
 
+function variableChoiceQuestion(id: number): Question {
+  return {
+    id,
+    description: `Question ${id}`,
+    answers: Array.from({ length: 7 }, (_, index) => ({
+      text: `Answer ${index}`,
+      correct: index === 3,
+      justification: `Explanation ${index}`,
+    })),
+  };
+}
+
 describe('practice question sampling', () => {
   it('uses every question below sixty and caps larger sets at sixty', () => {
     expect(samplePracticeQuestions(oneQuestion, () => 0)).toEqual([1]);
@@ -60,6 +76,26 @@ describe('practice question sampling', () => {
     expect(runForOne.questionIds).toHaveLength(1);
     expect(runForOne.nextUnanswered).toBe(0);
     expect(() => samplePracticeQuestions(threeQuestions, (limit) => limit)).toThrow('invalid index');
+  });
+});
+
+describe('stable practice answer order', () => {
+  it('permutes variable-length choices consistently while incorporating run and question identity', () => {
+    const question = variableChoiceQuestion(41);
+    const order = practiceAnswerOrder('stable-run', question);
+    expect(order).toHaveLength(question.answers.length);
+    expect(order.toSorted((first, second) => first - second))
+      .toEqual([...question.answers.keys()]);
+    expect(practiceAnswerOrder('stable-run', variableChoiceQuestion(41))).toEqual(order);
+
+    const runOrders = new Set(Array.from({ length: 16 }, (_, index) => (
+      practiceAnswerOrder(`run-${index}`, question).join(',')
+    )));
+    const questionOrders = new Set(Array.from({ length: 16 }, (_, index) => (
+      practiceAnswerOrder('stable-run', variableChoiceQuestion(index + 1)).join(',')
+    )));
+    expect(runOrders.size).toBeGreaterThan(1);
+    expect(questionOrders.size).toBeGreaterThan(1);
   });
 });
 
@@ -130,5 +166,44 @@ describe('sequential answers and completed report', () => {
       elapsedMs: 4000,
       now: 4000,
     })).toThrow('current');
+  });
+
+  it('retains canonical answer identity in the matching displayed report order', () => {
+    const firstQuestion = threeQuestions.questions[0]!;
+    const secondQuestion = threeQuestions.questions[1]!;
+    let current: PracticeRun = {
+      id: 'report-order-run',
+      createdAt: 100,
+      completedAt: null,
+      status: 'active',
+      questionIds: [firstQuestion.id, secondQuestion.id],
+      answers: [],
+      nextUnanswered: 0,
+      viewedPosition: 0,
+      elapsedMs: 0,
+      result: null,
+    };
+    const selectedIndexes = [0, 1];
+    for (const [position, answerIndex] of selectedIndexes.entries()) {
+      current = answerPracticeRun(current, threeQuestions, {
+        position,
+        answerIndex,
+        elapsedMs: position * 1000,
+        now: 1000 + position * 1000,
+      });
+    }
+
+    const report = practiceReport(current, threeQuestions)!;
+    expect(report.questions.map((question) => question.outcome))
+      .toEqual(['correctly_answered', 'incorrectly_answered']);
+    for (const [position, question] of [firstQuestion, secondQuestion].entries()) {
+      const order = practiceAnswerOrder(current.id, question);
+      expect(report.questions[position]!.choices.map((choice) => choice.text))
+        .toEqual(order.map((answerIndex) => question.answers[answerIndex]!.text));
+      expect(report.questions[position]!.choices.map((choice) => choice.selected))
+        .toEqual(order.map((answerIndex) => answerIndex === selectedIndexes[position]!));
+      expect(report.questions[position]!.choices.map((choice) => choice.correct))
+        .toEqual(order.map((answerIndex) => question.answers[answerIndex]!.correct));
+    }
   });
 });

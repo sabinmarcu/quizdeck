@@ -1,5 +1,31 @@
-import type { QuestionSet } from './question-set';
+import { hash } from '@stablelib/sha256';
+import type {
+  Question,
+  QuestionSet,
+} from './question-set';
 import type { PracticeRun } from './records';
+
+const textEncoder = new TextEncoder();
+
+function compareBytes(first: Uint8Array, second: Uint8Array): number {
+  for (const [index, element] of first.entries()) {
+    const difference = element! - second[index]!;
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return 0;
+}
+
+export function practiceAnswerOrder(runId: string, question: Question): number[] {
+  const ranks = question.answers.map((_, index) => (
+    hash(textEncoder.encode(JSON.stringify([runId, question.id, index])))
+  ));
+  const order = [...ranks.keys()];
+  return order.toSorted((first, second) => (
+    compareBytes(ranks[first]!, ranks[second]!) || first - second
+  ));
+}
 
 function randomIndex(limit: number): number {
   const sample = new Uint32Array(1);
@@ -134,12 +160,15 @@ export function practiceReport(run: PracticeRun, set: QuestionSet): PracticeRepo
         questionId: id,
         description: question.description,
         outcome: answer.outcome,
-        choices: question.answers.map((choice, choiceIndex) => ({
-          text: choice.text,
-          selected: answer.answerIndex === choiceIndex,
-          correct: choice.correct,
-          justification: choice.justification || 'No explanation provided in the source.',
-        })),
+        choices: practiceAnswerOrder(run.id, question).map((choiceIndex) => {
+          const choice = question.answers[choiceIndex]!;
+          return {
+            text: choice.text,
+            selected: answer.answerIndex === choiceIndex,
+            correct: choice.correct,
+            justification: choice.justification || 'No explanation provided in the source.',
+          };
+        }),
       };
     }),
   };

@@ -16,6 +16,7 @@ import {
 } from '../state/application';
 import {
   answerLearningAtom,
+  firstUnansweredLearningQuestionIdAtom,
   learningAdjacentAtom,
   learningAnswerIndex,
   learningCountsAtom,
@@ -42,25 +43,37 @@ import {
   buttonRow,
   controls,
   counts,
+  detailLayout,
+  detailRoot,
   empty,
   feedback,
   feedbackText,
   filter,
   input,
   itemsPerPage,
+  navigationArrow,
+  nextArrow,
+  nextPages,
   pageButton,
   pageInput,
+  pageNavigation,
+  pageNumber,
+  pageRail,
   pagination,
   paginationError,
   paginationStatus,
+  previousArrow,
+  previousPages,
   question,
   questionHeading,
+  questionNavigation,
   questionText,
   results,
   root,
   rowButton,
   rowMeta,
   search,
+  secondaryActions,
   secondaryButton,
   select,
 } from './Learning.css';
@@ -97,6 +110,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const [resetOpen, setResetOpen] = useAtom(learningResetOpenAtom);
   const rows = useAtomValue(learningRowsAtom);
   const countsValue = useAtomValue(learningCountsAtom);
+  const firstUnansweredId = useAtomValue(firstUnansweredLearningQuestionIdAtom);
   const detail = useAtomValue(learningDetailAtom);
   const { previous: previousDetailId, next: nextDetailId } = useAtomValue(learningAdjacentAtom);
   const pending = useAtomValue(pendingAtom);
@@ -115,12 +129,17 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const [itemsPerPageValue, setItemsPerPageValue] = useState(String(defaultItemsPerPage));
   const [pageSize, setPageSize] = useState(defaultItemsPerPage);
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageNumberDraft, setPageNumberDraft] = useState<string | null>(null);
   const parsedItemsPerPage = positiveSafeInteger(itemsPerPageValue);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const visiblePage = Math.min(currentPage, totalPages - 1);
   if (currentPage !== visiblePage) {
     setCurrentPage(visiblePage);
+    setPageNumberDraft(null);
   }
+  const pageNumberValue = pageNumberDraft ?? String(visiblePage + 1);
+  const parsedPageNumber = positiveSafeInteger(pageNumberValue);
+  const pageNumberInvalid = parsedPageNumber === null || parsedPageNumber > totalPages;
   const pageRows = useMemo(() => rows.slice(
     visiblePage * pageSize,
     (visiblePage + 1) * pageSize,
@@ -136,6 +155,17 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const restoreHelpFocus = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [answerFocus, setAnswerFocus] = useState(0);
+
+  const changePage = useCallback((page: number) => {
+    setPageNumberDraft(null);
+    setCurrentPage(page);
+  }, []);
+
+  const commitPageNumber = useCallback(() => {
+    if (parsedPageNumber !== null && parsedPageNumber <= totalPages) {
+      changePage(parsedPageNumber - 1);
+    }
+  }, [changePage, parsedPageNumber, totalPages]);
 
   useEffect(() => {
     if (questionId !== null) {
@@ -205,9 +235,9 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   const showRowPage = useCallback((id: number) => {
     const rowIndex = rows.findIndex((row) => row.id === id);
     if (rowIndex !== -1) {
-      setCurrentPage(Math.floor(rowIndex / pageSize));
+      changePage(Math.floor(rowIndex / pageSize));
     }
-  }, [pageSize, rows]);
+  }, [changePage, pageSize, rows]);
 
   const returnToList = useCallback(() => {
     setQuestionId(null);
@@ -231,6 +261,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   }, [openQuestion, showRowPage]);
 
   const changeItemsPerPage = useCallback((value: string) => {
+    setPageNumberDraft(null);
     setItemsPerPageValue(value);
     const nextPageSize = positiveSafeInteger(value);
     if (nextPageSize === null) {
@@ -538,122 +569,128 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   if (questionId !== null && detail) {
     const answered = detail.status !== 'unanswered';
     return (
-      <section className={root} aria-labelledby="learning-question">
-        <div className={question}>
-          <p className={rowMeta} data-outcome={detail.status}>
-            Question
-            {' '}
-            {detail.id}
-            {' '}
-            ·
-            {' '}
-            {learningStatusLabels[detail.status]}
-          </p>
-          <h2
-            className={questionHeading}
-            data-outcome={detail.status}
-            id="learning-question"
-            tabIndex={-1}
-          >
-            Question
-            {' '}
-            {detail.id}
-          </h2>
-          <p className={questionText}>{detail.description}</p>
-          <ol className={answerList} aria-label="Answer choices">
-            {detail.choices.map((choice, index) => {
-              const letter = answerKeys[index] ?? String(index + 1);
-              return (
-                <li key={`${detail.id}-${choice.text}`}>
-                  <button
-                    ref={(element) => {
-                      if (element) {
-                        answerButtonReferences.current.set(index, element);
-                      } else {
-                        answerButtonReferences.current.delete(index);
-                      }
-                    }}
-                    aria-describedby={choice.feedback
-                      ? `feedback-${detail.id}-${index}`
-                      : undefined}
-                    className={answer}
-                    data-correct={choice.feedback?.correct}
-                    disabled={answered || pending}
-                    type="button"
-                    onClick={async () => { await commitAnswer(index); }}
-                    onFocus={() => { setAnswerFocus(index); }}
-                  >
-                    <span className={answerLabel}>
-                      {letter.toUpperCase()}
-                      .
-                      {' '}
-                      {choice.text}
-                    </span>
-                    {choice.feedback && (
-                      <span className={feedback} id={`feedback-${detail.id}-${index}`}>
-                        <span className={feedbackText}>
-                          {choice.feedback.selected && <strong>Selected answer. </strong>}
-                          {choice.feedback.correct
-                            ? 'Correct answer.'
-                            : 'Not the correct answer.'}
-                        </span>
-                        <span className={feedbackText}>
-                          <strong>Explanation: </strong>
-                          {choice.feedback.justification}
-                        </span>
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-          {answered && (
-            <p className={empty} data-outcome={detail.status} aria-live="polite">
-              This answer is saved as
+      <section className={detailRoot} aria-labelledby="learning-question">
+        <div className={detailLayout}>
+          <div className={question} data-outcome={detail.status}>
+            <p className={rowMeta} data-outcome={detail.status}>
+              Question
               {' '}
-              {learningStatusLabels[detail.status].toLowerCase()}
-              .
-              Reset all learning progress to answer it again.
+              {detail.id}
+              {' '}
+              ·
+              {' '}
+              {learningStatusLabels[detail.status]}
             </p>
-          )}
-          <div className={buttonRow}>
-            <button className={secondaryButton} type="button" onClick={returnToList}>
-              Back to list
-            </button>
+            <h2
+              className={questionHeading}
+              data-outcome={detail.status}
+              id="learning-question"
+              tabIndex={-1}
+            >
+              Question
+              {' '}
+              {detail.id}
+            </h2>
+            <p className={questionText}>{detail.description}</p>
+            <ol className={answerList} aria-label="Answer choices">
+              {detail.choices.map((choice, index) => {
+                const letter = answerKeys[index] ?? String(index + 1);
+                return (
+                  <li key={`${detail.id}-${choice.text}`}>
+                    <button
+                      ref={(element) => {
+                        if (element) {
+                          answerButtonReferences.current.set(index, element);
+                        } else {
+                          answerButtonReferences.current.delete(index);
+                        }
+                      }}
+                      aria-describedby={choice.feedback
+                        ? `feedback-${detail.id}-${index}`
+                        : undefined}
+                      className={answer}
+                      data-correct={choice.feedback?.correct}
+                      disabled={answered || pending}
+                      type="button"
+                      onClick={async () => { await commitAnswer(index); }}
+                      onFocus={() => { setAnswerFocus(index); }}
+                    >
+                      <span className={answerLabel}>
+                        {letter.toUpperCase()}
+                        .
+                        {' '}
+                        {choice.text}
+                      </span>
+                      {choice.feedback && (
+                        <span className={feedback} id={`feedback-${detail.id}-${index}`}>
+                          <span className={feedbackText}>
+                            {choice.feedback.selected && <strong>Selected answer. </strong>}
+                            {choice.feedback.correct
+                              ? 'Correct answer.'
+                              : 'Not the correct answer.'}
+                          </span>
+                          <span className={feedbackText}>
+                            <strong>Explanation: </strong>
+                            {choice.feedback.justification}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            {answered && (
+              <p className={empty} data-outcome={detail.status} aria-live="polite">
+                This answer is saved as
+                {' '}
+                {learningStatusLabels[detail.status].toLowerCase()}
+                .
+                Reset all learning progress to answer it again.
+              </p>
+            )}
+          </div>
+          <nav className={questionNavigation} aria-label="Question navigation">
             <button
-              className={secondaryButton}
+              aria-label="Previous question"
+              className={`${navigationArrow} ${previousArrow}`}
               disabled={previousDetailId === null}
               type="button"
               onClick={() => { moveDetail(previousDetailId); }}
             >
-              Previous question
+              <span aria-hidden="true">←</span>
             </button>
             <button
-              className={secondaryButton}
+              aria-label="Next question"
+              className={`${navigationArrow} ${nextArrow}`}
               disabled={nextDetailId === null}
               type="button"
               onClick={() => { moveDetail(nextDetailId); }}
             >
-              Next question
+              <span aria-hidden="true">→</span>
             </button>
-            <button
-              ref={helpButtonReference}
-              className={secondaryButton}
-              type="button"
-              onClick={() => { setHelpOpen(true); }}
-            >
-              Keyboard help
-            </button>
-            <button
-              ref={resetButtonReference}
-              className={button}
-              type="button"
-              onClick={openResetDialog}
-            >
-              Reset all learning progress
-            </button>
-          </div>
+          </nav>
+        </div>
+        <div className={secondaryActions}>
+          <button className={secondaryButton} type="button" onClick={returnToList}>
+            Back to list
+          </button>
+          <button
+            ref={helpButtonReference}
+            className={secondaryButton}
+            type="button"
+            onClick={() => { setHelpOpen(true); }}
+          >
+            Keyboard help
+          </button>
+          <button
+            ref={resetButtonReference}
+            className={button}
+            type="button"
+            onClick={openResetDialog}
+          >
+            Reset all learning progress
+          </button>
         </div>
         {dialogs}
       </section>
@@ -675,7 +712,10 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             id="learning-search"
             type="search"
             value={query}
-            onChange={(event) => { setQuery(event.target.value); }}
+            onChange={(event) => {
+              setPageNumberDraft(null);
+              setQuery(event.target.value);
+            }}
           />
         </label>
         <label className={filter} htmlFor="learning-status">
@@ -684,7 +724,10 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             className={select}
             id="learning-status"
             value={filterValue}
-            onChange={(event) => { setFilterValue(event.target.value as typeof filterValue); }}
+            onChange={(event) => {
+              setPageNumberDraft(null);
+              setFilterValue(event.target.value as typeof filterValue);
+            }}
           >
             {learningFilters.map((filterName) => (
               <option key={filterName} value={filterName}>
@@ -718,6 +761,18 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           >
             Reset all learning progress
           </button>
+          <button
+            className={button}
+            disabled={firstUnansweredId === null}
+            type="button"
+            onClick={() => {
+              if (firstUnansweredId !== null) {
+                openFocusedQuestion(firstUnansweredId);
+              }
+            }}
+          >
+            Resume learning
+          </button>
         </div>
       </div>
       <p className={counts}>
@@ -738,7 +793,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
           .
         </span>
       </p>
-      <nav className={pagination} aria-label="Question list pagination">
+      <div className={pagination}>
         <label className={itemsPerPage} htmlFor="learning-items-per-page">
           <span>Items per page</span>
           <input
@@ -760,40 +815,41 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             </p>
           )}
         </label>
-        <div className={buttonRow}>
-          <button
-            className={pageButton}
-            disabled={visiblePage === 0}
-            type="button"
-            onClick={() => { setCurrentPage(0); }}
-          >
-            First page
-          </button>
-          <button
-            className={pageButton}
-            disabled={visiblePage === 0}
-            type="button"
-            onClick={() => { setCurrentPage(visiblePage - 1); }}
-          >
-            Previous page
-          </button>
-          <button
-            className={pageButton}
-            disabled={visiblePage === totalPages - 1}
-            type="button"
-            onClick={() => { setCurrentPage(visiblePage + 1); }}
-          >
-            Next page
-          </button>
-          <button
-            className={pageButton}
-            disabled={visiblePage === totalPages - 1}
-            type="button"
-            onClick={() => { setCurrentPage(totalPages - 1); }}
-          >
-            Last page
-          </button>
-        </div>
+        <label className={pageNumber} htmlFor="learning-page-number">
+          <span>Page number</span>
+          <input
+            aria-describedby={pageNumberInvalid ? 'learning-page-number-error' : undefined}
+            aria-invalid={pageNumberInvalid || undefined}
+            className={pageInput}
+            disabled={rows.length === 0}
+            id="learning-page-number"
+            inputMode="numeric"
+            max={totalPages}
+            min={1}
+            step={1}
+            type="number"
+            value={pageNumberValue}
+            onBlur={commitPageNumber}
+            onChange={(event) => { setPageNumberDraft(event.target.value); }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                commitPageNumber();
+              } else if (event.key === 'Escape') {
+                event.preventDefault();
+                setPageNumberDraft(null);
+              }
+            }}
+          />
+          {pageNumberInvalid && (
+            <p className={paginationError} id="learning-page-number-error" aria-live="polite">
+              Enter a whole number from 1 to
+              {' '}
+              {totalPages}
+              .
+            </p>
+          )}
+        </label>
         <p className={paginationStatus} aria-live="polite">
           Page
           {' '}
@@ -808,6 +864,52 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
             ? 'No matching results.'
             : `Showing ${firstResult}–${lastResult} of ${rows.length} results.`}
         </p>
+      </div>
+      <nav className={pageNavigation} aria-label="Question list pagination">
+        <div className={`${pageRail} ${previousPages}`}>
+          <button
+            aria-label="First page"
+            className={pageButton}
+            disabled={visiblePage === 0}
+            title="First page"
+            type="button"
+            onClick={() => { changePage(0); }}
+          >
+            <span aria-hidden="true">«</span>
+          </button>
+          <button
+            aria-label="Previous page"
+            className={pageButton}
+            disabled={visiblePage === 0}
+            title="Previous page"
+            type="button"
+            onClick={() => { changePage(visiblePage - 1); }}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+        </div>
+        <div className={`${pageRail} ${nextPages}`}>
+          <button
+            aria-label="Next page"
+            className={pageButton}
+            disabled={visiblePage === totalPages - 1}
+            title="Next page"
+            type="button"
+            onClick={() => { changePage(visiblePage + 1); }}
+          >
+            <span aria-hidden="true">→</span>
+          </button>
+          <button
+            aria-label="Last page"
+            className={pageButton}
+            disabled={visiblePage === totalPages - 1}
+            title="Last page"
+            type="button"
+            onClick={() => { changePage(totalPages - 1); }}
+          >
+            <span aria-hidden="true">»</span>
+          </button>
+        </div>
       </nav>
       {rows.length === 0
         ? (

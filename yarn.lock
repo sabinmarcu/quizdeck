@@ -1475,9 +1475,11 @@ __metadata:
     "@commitlint/cli": "npm:^21.2.3"
     "@commitlint/config-conventional": "npm:^21.2.3"
     "@sabinmarcu/eslint-config": "npm:3.4.3"
-    "@sabinmarcu/theme": "npm:1.2.4"
+    "@sabinmarcu/theme": "npm:1.3.0"
+    "@sabinmarcu/theme-core": "npm:1.0.0"
     "@semantic-release/changelog": "npm:^7.0.0"
     "@semantic-release/git": "npm:^11.0.1"
+    "@stablelib/sha256": "npm:^2.0.1"
     "@types/eslint-plugin-jsx-a11y": "npm:^6"
     "@types/node": "npm:^26.6.3"
     "@types/react": "npm:^19.3.0"
@@ -1513,30 +1515,33 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sabinmarcu/stylesheet@npm:1.0.3":
-  version: 1.0.3
-  resolution: "@sabinmarcu/stylesheet@npm:1.0.3"
+"@sabinmarcu/stylesheet@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@sabinmarcu/stylesheet@npm:1.1.0"
   peerDependencies:
     react: "*"
-  checksum: 10c0/c06f6d69bc5a9d8eb48029455081da3ddbe0ff19d01d6a94afe06dc85e9fc0f8d02a17295398bdc181aa91106bbb8889fffdfb26cca97b076e9e660d27a9196e
+  peerDependenciesMeta:
+    react:
+      optional: true
+  checksum: 10c0/9a31274d4f7c98f9d73680067c7069bdf59be9a193cd0d4590e08e463928fa88d6907cdad89ea0e977831bace36091734b91d8ff8b4067e38d8a71e64399a611
   languageName: node
   linkType: hard
 
-"@sabinmarcu/theme@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@sabinmarcu/theme@npm:1.2.4"
+"@sabinmarcu/theme-core@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@sabinmarcu/theme-core@npm:1.0.0"
   dependencies:
     "@sabinmarcu/stylesheet": "npm:1.0.3"
-    "@sabinmarcu/types": "npm:2.1.0"
-    colorjs.io: "npm:^0.5.2"
-  peerDependencies:
-    "@mui/icons-material": "*"
-    "@mui/material": "*"
-    "@storybook/react": "*"
-    "@vanilla-extract/css": "*"
-    "@vanilla-extract/dynamic": "*"
-    react: "*"
-  checksum: 10c0/3f2250b43c490f94b9d94999309ebe39b8d80c8f258c6e08215ea66aef3bbe478b47824abdb6689b839ba1c67df3ec1bfe0026acb44bc779a86b87e2d3d0c5cb
+  checksum: 10c0/453f8f56227d83caaa457764e20226ea09af8a7add028614efb3687a6d28257fd2365705c1c6c4100f80905739d3b880cc2cea1eaab9a9762e81b74306e359f7
+  languageName: node
+  linkType: hard
+
+"@sabinmarcu/theme@npm:1.3.0":
+  version: 1.3.0
+  resolution: "@sabinmarcu/theme@npm:1.3.0"
+  dependencies:
+    "@sabinmarcu/theme-core": "npm:1.0.0"
+  checksum: 10c0/392e399e6d3f669bbff999675cd7b0b5b59a59bde05f749eec4c9934e0142f1faf324c23453c8091df3d541ade84ddb60680da0cb6377c6661d7858ba3248bcf
   languageName: node
   linkType: hard
 
@@ -1774,6 +1779,47 @@ __metadata:
   version: 4.0.0
   resolution: "@sindresorhus/merge-streams@npm:4.0.0"
   checksum: 10c0/482ee543629aa1933b332f811a1ae805a213681ecdd98c042b1c1b89387df63e7812248bb4df3910b02b3cc5589d3d73e4393f30e197c9dde18046ccd471fc6b
+  languageName: node
+  linkType: hard
+
+"@stablelib/binary@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@stablelib/binary@npm:2.0.1"
+  dependencies:
+    "@stablelib/int": "npm:^2.0.1"
+  checksum: 10c0/6c6a5c84e523fefa98ae50bb1dfe03d03df5d346a9f65da07d784901eb1f3df0d4f9382429ec56df2833c133a77be106e04c72254c9b9471c4f15da993cde24e
+  languageName: node
+  linkType: hard
+
+"@stablelib/hash@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "@stablelib/hash@npm:2.0.0"
+  checksum: 10c0/f55826423dc3af892b1faf6e022153bf3e5c641570701e6f5293569ebdca80fd486973beb1555a46fbf82d5e1ec4e27afc9ff036793313a5518d8dfd1e0c1171
+  languageName: node
+  linkType: hard
+
+"@stablelib/int@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@stablelib/int@npm:2.0.1"
+  checksum: 10c0/bf70d40b910dcc19e15e23eb6ce0beddb9bcc8bda958184490753b5e757c8028f5f1d7ccc056766129e02c416665ce474b95031c84f285105a8d7e1da781059a
+  languageName: node
+  linkType: hard
+
+"@stablelib/sha256@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@stablelib/sha256@npm:2.0.1"
+  dependencies:
+    "@stablelib/binary": "npm:^2.0.1"
+    "@stablelib/hash": "npm:^2.0.0"
+    "@stablelib/wipe": "npm:^2.0.1"
+  checksum: 10c0/ccdabed7c604f8fe843304a49c864acbca810f6c24a68d8c85a1d5b89c6454d69604c14f53b1896ec7c624e764fc3d8ddcf6084e2a0ca9ad2671793429f029bc
+  languageName: node
+  linkType: hard
+
+"@stablelib/wipe@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@stablelib/wipe@npm:2.0.1"
+  checksum: 10c0/f0b76e98f773e5a9875a53fd5d3f311f2585aead8578c4cbd82719154ecf7ec98c9575e6c4068339b7bf445341180312f3a73b5c80b92eb24810c3511b5a4927
   languageName: node
   linkType: hard
 
@@ -3082,13 +3128,6 @@ __metadata:
   version: 1.1.4
   resolution: "color-name@npm:1.1.4"
   checksum: 10c0/a1a3f914156960902f46f7f56bc62effc6c94e84b2cae157a526b1c1f74b677a47ec602bf68a61abfa2b42d15b7c5651c6dbe72a43af720bc588dff885b10f95
-  languageName: node
-  linkType: hard
-
-"colorjs.io@npm:^0.5.2":
-  version: 0.5.2
-  resolution: "colorjs.io@npm:0.5.2"
-  checksum: 10c0/2e6ea43629e325e721b92429239de3a6f42fb6d88ba6e4c2aeff0288c196d876f2f7ee82aea95bd40072d5cdc8cb87f042f4d94c134dcabf0e34a717e4caacb9
   languageName: node
   linkType: hard
 

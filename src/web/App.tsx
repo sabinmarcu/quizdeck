@@ -73,14 +73,11 @@ export function App({ onReload }: App.Props) {
   const [section, setSection] = useState<ShellSection>('Learn');
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState(0);
-  const [acknowledgedLocation, setAcknowledgedLocation] = useState<string | null>(null);
   const [loadBusy, setLoadBusy] = useState(false);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
   const fileInputReference = useRef<HTMLInputElement>(null);
   const firstGAt = useRef<number | null>(null);
-  const storageInteractive = startup.status === 'ready'
-    && (startup.retention === 'persistent' || acknowledgedLocation === startup.location);
-  const interactive = storageInteractive && !loadBusy;
+  const interactive = startup.status === 'ready' && !loadBusy;
 
   const selectSection = useCallback(async (index: number) => {
     const extrasIndex = mainMenuItems.indexOf('Extras');
@@ -232,28 +229,6 @@ export function App({ onReload }: App.Props) {
         }
         if (!setInfo) {
           throw new Error('Ready storage must include validated question-set information.');
-        }
-        if (!storageInteractive) {
-          return (
-            <main className={shell}>
-              <h1>Quizdeck</h1>
-              <section className={notice} role="alert" aria-labelledby="retention-title">
-                <h2 id="retention-title">Progress may be cleared by this browser</h2>
-                <p>
-                  Persistent retention was not granted or is unavailable. IndexedDB still saves your
-                  progress, but the browser can evict best-effort storage when space is needed.
-                </p>
-                <p className={hash}>{startup.location}</p>
-                <button
-                  className={action}
-                  type="button"
-                  onClick={() => { setAcknowledgedLocation(startup.location); }}
-                >
-                  I understand
-                </button>
-              </section>
-            </main>
-          );
         }
         return (
           <main className={shell}>
