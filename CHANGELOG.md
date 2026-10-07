@@ -1,3 +1,25 @@
+# [1.2.0](https://github.com/sabinmarcu/quizdeck/compare/v1.1.0...v1.2.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* **vercel:** use the pinned Yarn release ([a313f20](https://github.com/sabinmarcu/quizdeck/commit/a313f20698f870eed752a15205f48c7d312db747))
+* **web:** support plain HTTP on LAN hosts ([7e69feb](https://github.com/sabinmarcu/quizdeck/commit/7e69feb2469429efb667488baacc2f99557338c2))
+
+
+### Features
+
+* **practice:** shuffle answer choices consistently ([b8e60c2](https://github.com/sabinmarcu/quizdeck/commit/b8e60c29a40917e04c4271a9dfa0397da85623b6))
+* **web:** add a learning resume shortcut ([d26faf5](https://github.com/sabinmarcu/quizdeck/commit/d26faf5c228f831540582493b72320971f5746cb))
+* **web:** configure allowed hosts from the environment ([2b9a01c](https://github.com/sabinmarcu/quizdeck/commit/2b9a01c9673dec858bea2af53ec1b377954ef6ce))
+* **web:** improve learning list pagination ([b6b2131](https://github.com/sabinmarcu/quizdeck/commit/b6b21318d561fa7048ad1146d7f4c6118a82130d))
+* **web:** improve responsive question navigation ([1d76890](https://github.com/sabinmarcu/quizdeck/commit/1d768905102be6a546e07ece018881a290b39811))
+* **web:** open learning without a storage notice ([81edc69](https://github.com/sabinmarcu/quizdeck/commit/81edc691dc4660ab1bd7866fbe4187191f49526e))
+* **web:** refine learning card and navigation styling ([9622ccc](https://github.com/sabinmarcu/quizdeck/commit/9622ccc05ab0781a3d2ca2ee7b006da9a4e32373))
+* **web:** refresh theme color palettes ([791d39b](https://github.com/sabinmarcu/quizdeck/commit/791d39b56d927d1139ebfeb4aeede1931a251974))
+* **web:** upgrade theme APIs and manifests ([cb8b5a8](https://github.com/sabinmarcu/quizdeck/commit/cb8b5a878e15bce8798baf3b0bdff7385bf5e73e))
+* **web:** use proportional MonoLisa Text typography ([90948fa](https://github.com/sabinmarcu/quizdeck/commit/90948faddebe7fdbb9ea9dcedfc56d8bf57c4e11))
+
 # [1.1.0](https://github.com/sabinmarcu/quizdeck/compare/v1.0.1...v1.1.0) (2026-10-02)
 
 
