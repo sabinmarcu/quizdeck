@@ -132,7 +132,13 @@ export interface PracticeReportQuestion {
   questionId: number;
   description: string;
   outcome: 'correctly_answered' | 'incorrectly_answered';
-  choices: Array<{ text: string; selected: boolean; correct: boolean; justification: string }>;
+  justification: string | null;
+  choices: Array<{
+    text: string;
+    selected: boolean;
+    correct: boolean;
+    justification: string | null;
+  }>;
 }
 
 export interface PracticeReport {
@@ -166,13 +172,15 @@ export function practiceReport(run: PracticeRun, set: QuestionSet): PracticeRepo
         questionId: id,
         description: question.description,
         outcome: answer.outcome,
+        justification: question.justification || null,
         choices: practiceAnswerOrder(run.id, question).map((choiceIndex) => {
           const choice = question.answers[choiceIndex]!;
           return {
             text: choice.text,
             selected: answer.answerIndices.includes(choiceIndex),
             correct: choice.correct,
-            justification: choice.justification || 'No explanation provided in the source.',
+            justification: choice.justification
+              || (question.justification ? null : 'No explanation provided in the source.'),
           };
         }),
       };

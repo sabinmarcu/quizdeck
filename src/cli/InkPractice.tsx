@@ -72,6 +72,7 @@ function reportLines(question: PracticeReportQuestion, width: number): TerminalL
         + ` · ${correct ? 'Correctly answered' : 'Incorrectly answered'}`,
       statusColor: correct ? 'green' : 'red',
       description: question.description,
+      justification: question.justification,
       choices: question.choices.map((choice) => ({
         text: choice.text,
         feedback: choice,

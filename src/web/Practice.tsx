@@ -522,14 +522,22 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                         </strong>
                         <span>{choice.selected ? 'Selected answer.' : 'Not selected.'}</span>
                         <span>{choice.correct ? 'Correct answer.' : 'Incorrect answer.'}</span>
-                        <span>
-                          <strong>Explanation: </strong>
-                          {choice.justification}
-                        </span>
+                        {choice.justification && (
+                          <span>
+                            <strong>Explanation: </strong>
+                            {choice.justification}
+                          </span>
+                        )}
                       </div>
                     </li>
                   ))}
                 </ol>
+                {questionEntry.justification && (
+                  <p className={reportText}>
+                    <strong>Explanation: </strong>
+                    {questionEntry.justification}
+                  </p>
+                )}
               </article>
             </li>
           ))}

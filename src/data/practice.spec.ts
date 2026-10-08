@@ -101,6 +101,65 @@ describe('stable practice answer order', () => {
 });
 
 describe('sequential answers and completed report', () => {
+  it('withholds shared explanations until completion and preserves answer-specific explanations', async () => {
+    const shared = 'Both applicable choices are explained together.';
+    const own = 'This choice has its own explanation.';
+    const set = await createQuestionSet([{
+      id: 1,
+      description: 'Select both applicable choices',
+      justification: shared,
+      answers: [true, false, true].map((correct, index) => ({
+        text: `Shared choice ${index}`,
+        correct,
+        justification: index === 1 ? own : '',
+      })),
+    }, {
+      id: 2,
+      description: 'Select the only correct choice',
+      answers: [true, false].map((correct, index) => ({
+        text: `Single choice ${index}`,
+        correct,
+        justification: index === 0 ? own : '',
+      })),
+    }], {
+      name: 'Shared',
+      source: 'file',
+      loadedAt: 0,
+    });
+    const initial = run(set);
+    const partial = answerPracticeRun(initial, set, {
+      position: 0,
+      answerIndices: [0],
+      elapsedMs: 50,
+      now: 150,
+    });
+    expect(practiceReport(partial, set)).toBeNull();
+    const firstAnswered = answerPracticeRun(partial, set, {
+      position: 0,
+      answerIndices: [0, 2],
+      elapsedMs: 100,
+      now: 200,
+    });
+    expect(practiceReport(firstAnswered, set)).toBeNull();
+    const completed = answerPracticeRun(firstAnswered, set, {
+      position: 1,
+      answerIndices: [0],
+      elapsedMs: 150,
+      now: 250,
+    });
+    const report = practiceReport(completed, set)!;
+    const explained = report.questions[0]!;
+    expect(explained.justification).toBe(shared);
+    expect(explained.choices.find((choice) => choice.text === 'Shared choice 1')!.justification)
+      .toBe(own);
+    expect(explained.choices.filter((choice) => choice.text !== 'Shared choice 1')
+      .map((choice) => choice.justification)).toEqual([null, null]);
+    const missing = report.questions[1]!;
+    expect(missing.justification).toBeNull();
+    expect(missing.choices.find((choice) => choice.text === 'Single choice 1')!.justification)
+      .toBe('No explanation provided in the source.');
+  });
+
   it('keeps a correct partial selection unanswered until all correct choices are selected', async () => {
     const set = await createQuestionSet([{
       id: 1,

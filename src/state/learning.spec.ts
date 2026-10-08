@@ -107,6 +107,61 @@ async function record(questionId: number, correct: boolean) {
 describe('persisted learning workflow', () => {
   it.each([
     {
+      indices: [0, 2],
+      outcome: 'correctly_answered',
+    },
+    {
+      indices: [1],
+      outcome: 'incorrectly_answered',
+    },
+  ])('reveals shared explanations only after $outcome', async ({ indices, outcome }) => {
+    const shared = 'Both correct choices belong together.';
+    const own = 'The middle choice is not applicable.';
+    const multiple = await createQuestionSet([{
+      id: 1,
+      description: 'Select both applicable choices',
+      justification: shared,
+      answers: [true, false, true].map((correct, index) => ({
+        text: `Choice ${index}`,
+        correct,
+        justification: index === 1 ? own : '',
+      })),
+    }], {
+      name: 'Shared',
+      source: 'file',
+      loadedAt: 0,
+    });
+    await session.store.set(commitAtom, [{
+      kind: 'replaceSet',
+      set: multiple,
+    }]);
+    session.store.set(openLearningQuestionAtom, 1);
+    expect(session.store.get(learningDetailAtom)!.justification).toBeNull();
+    for (const [position, answerIndex] of indices.entries()) {
+      await session.store.set(answerLearningAtom, {
+        questionId: 1,
+        answerIndex,
+      });
+      if (position < indices.length - 1) {
+        const partial = session.store.get(learningDetailAtom)!;
+        expect(partial.status).toBe('unanswered');
+        expect(partial.justification).toBeNull();
+        expect(partial.choices.every((choice) => choice.feedback === null)).toBe(true);
+      }
+    }
+    session.close();
+    session = createAppSession(() => SqliteProgressStorage.open({ path: filename }));
+    await session.start();
+    session.store.set(openLearningQuestionAtom, 1);
+    const detail = session.store.get(learningDetailAtom)!;
+    expect(detail.status).toBe(outcome);
+    expect(detail.justification).toBe(shared);
+    expect(detail.choices.map((choice) => choice.feedback?.justification))
+      .toEqual([null, own, null]);
+  });
+
+  it.each([
+    {
       indices: [2, 0],
       outcome: 'correctly_answered',
     },

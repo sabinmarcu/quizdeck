@@ -638,10 +638,12 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
                               ? 'Correct answer.'
                               : 'Not the correct answer.'}
                           </span>
-                          <span className={feedbackText}>
-                            <strong>Explanation: </strong>
-                            {choice.feedback.justification}
-                          </span>
+                          {choice.feedback.justification && (
+                            <span className={feedbackText}>
+                              <strong>Explanation: </strong>
+                              {choice.feedback.justification}
+                            </span>
+                          )}
                         </span>
                       )}
                     </button>
@@ -649,6 +651,14 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
                 );
               })}
             </ol>
+            {answered && detail.justification && (
+              <div className={feedback}>
+                <p className={feedbackText}>
+                  <strong>Explanation: </strong>
+                  {detail.justification}
+                </p>
+              </div>
+            )}
             {answered && (
               <p className={empty} data-outcome={detail.status} aria-live="polite">
                 This answer is saved as

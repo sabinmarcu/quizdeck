@@ -24,10 +24,11 @@ export interface QuestionContent {
   notice?: string;
   canAnswer: boolean;
   afterword?: string;
+  justification?: string | null;
   choices: ReadonlyArray<{
     text: string;
     selected?: boolean;
-    feedback?: null | { selected: boolean; correct: boolean; justification: string };
+    feedback?: null | { selected: boolean; correct: boolean; justification: string | null };
   }>;
 }
 
@@ -52,16 +53,18 @@ export function questionContentLines(content: QuestionContent, width: number): Q
     ...content.choices.flatMap((choice, index): QuestionLine[] => {
       const label = String.fromCodePoint(65 + index);
       if (choice.feedback) {
-        const color = choice.feedback.correct ? 'green' : 'red';
+        const color: QuestionLine['color'] = choice.feedback.correct ? 'green' : 'red';
         return [
           {
             text: `${label}. ${choice.text} [${feedbackLabel(choice.feedback.selected, choice.feedback.correct)}]`,
             color,
           },
-          {
-            text: `   Explanation: ${choice.feedback.justification}`,
-            color,
-          },
+          ...(choice.feedback.justification
+            ? [{
+              text: `   Explanation: ${choice.feedback.justification}`,
+              color,
+            }]
+            : []),
           { text: '' },
         ];
       }
@@ -73,6 +76,12 @@ export function questionContentLines(content: QuestionContent, width: number): Q
         { text: '' },
       ];
     }),
+    ...(!content.canAnswer && content.justification
+      ? [{ text: ' ' }, {
+        text: `Explanation: ${content.justification}`,
+        color: content.statusColor,
+      }]
+      : []),
     ...(content.afterword
       ? [{ text: ' ' }, {
         text: content.afterword,

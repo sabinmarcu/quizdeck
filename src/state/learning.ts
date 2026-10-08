@@ -31,13 +31,14 @@ export interface LearningRow { id: number; description: string; status: Learning
 export interface LearningChoice {
   text: string;
   selected: boolean;
-  feedback: null | { selected: boolean; correct: boolean; justification: string };
+  feedback: null | { selected: boolean; correct: boolean; justification: string | null };
 }
 export interface LearningDetail {
   id: number;
   description: string;
   status: LearningStatus;
   multiple: boolean;
+  justification: string | null;
   choices: LearningChoice[];
 }
 
@@ -136,6 +137,7 @@ export const learningDetailAtom = atom<LearningDetail | null>((get) => {
     description: question.description,
     status: saved?.outcome ?? 'unanswered',
     multiple: question.answers.reduce((count, answer) => count + Number(answer.correct), 0) > 1,
+    justification: saved ? question.justification || null : null,
     choices: question.answers.map((answer, index) => ({
       text: answer.text,
       selected: saved?.answerIndices.includes(index)
@@ -144,7 +146,8 @@ export const learningDetailAtom = atom<LearningDetail | null>((get) => {
         ? {
           selected: saved.answerIndices.includes(index),
           correct: answer.correct,
-          justification: answer.justification || 'No explanation provided in the source.',
+          justification: answer.justification
+            || (question.justification ? null : 'No explanation provided in the source.'),
         }
         : null,
     })),

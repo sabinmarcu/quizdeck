@@ -62,8 +62,9 @@ export const setInfoAtom = atom<SetInfo | null>((get) => {
     questionCount: currentSet.questionCount,
     answerCount: currentSet.questions.reduce((count, { answers }) => count + answers.length, 0),
     missingExplanationCount: currentSet.questions.reduce(
-      (count, question) => count
-        + question.answers.filter((answer) => !answer.justification).length,
+      (count, question) => count + (question.justification
+        ? 0
+        : question.answers.reduce((missing, answer) => missing + Number(!answer.justification), 0)),
       0,
     ),
   };

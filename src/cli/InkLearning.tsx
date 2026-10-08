@@ -146,6 +146,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
       title: `Question ${detail.id} · ${learningStatusLabels[detail.status]}`,
       statusColor: statusColors[detail.status],
       description: detail.description,
+      justification: detail.justification,
       choices: detail.choices,
       canAnswer: detail.status === 'unanswered',
       afterword: detail.status !== 'unanswered'
