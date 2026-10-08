@@ -177,10 +177,17 @@ Saved web learning question cards use pronounced green or red backgrounds and
 matching 2px borders for correct or incorrect outcomes. Unanswered cards remain neutral;
 status labels and individual answer-choice feedback remain visible alongside color.
 
-Opening a question or moving choice focus does not complete it. Activate a choice
-with Enter, a–d/1–4, or a web button; there is no separate submit step. The answer
-and correct/incorrect completion status are persisted together, then correctness
-and justifications are shown. Missing source explanations are identified honestly.
+Opening a question or moving choice focus does not complete it. Select a choice
+with Enter, a–d/1–4, or a web choice button; CLI Space selects the focused choice
+on multiple-answer questions. There is no separate submission step.
+On single-answer questions, any selection immediately saves a correct or incorrect
+result. On multiple-answer questions, an incorrect selection immediately saves an
+incorrect result. Correct selections accumulate while the question stays unanswered;
+selecting the last correct choice immediately saves a correct result. Already selected
+choices cannot be deselected or counted twice. Navigating to another question discards
+unfinished selections; only final outcomes survive an application restart.
+The saved selection and completion status are persisted together, then correctness
+and per-answer justifications are shown. Missing source explanations are identified honestly.
 Correctly answered question statuses are green; incorrectly answered statuses are
 red. Revealed correct choices are green and all incorrect choices are red in both
 apps. Unanswered choices have no correctness colors; textual labels accompany color.
@@ -227,12 +234,22 @@ Practice also shuffles answer choices in both interfaces. The run and question
 identities determine a stable display order across review, pause/resume, reload,
 and completed reports. Choice shortcuts refer to that displayed order, while
 saved answers retain their original dataset indices for scoring. Learning keeps
-the source answer order; existing saved progress requires no schema migration.
+the source answer order. Existing single-answer progress is upgraded atomically
+to answer-index arrays on opening storage, retaining learning answers, run history,
+scores, and timing; older applications cannot write the upgraded storage.
 
-Activate an answer once with a choice button, Enter, or a–d/1–4. A successful
-transaction records the answer and advances to the next unanswered question.
+Answer choices use uppercase letter labels (A, B, C, D, E … Z) in learning,
+practice, and reports in both interfaces.
+
+Select each choice with a choice button, Enter, or a–d/1–4. Single-answer questions
+record and advance immediately. On multiple-answer questions, a wrong selection
+records an incorrect outcome and advances immediately; correct selections remain
+on the current question until every correct choice is selected, then record a correct
+outcome and advance. There is no submission step or partial credit. Within a session,
+pause/resume preserves unfinished selections; question navigation or leaving practice
+clears them.
 Earlier questions can be inspected with h/l or previous/next controls, showing
-the recorded choice read-only. Future questions cannot be skipped, and neither
+the recorded choices read-only. Future questions cannot be skipped, and neither
 correctness, explanations, a running score, nor dataset-ID mapping is shown early.
 
 The final answer commits completion and opens the saved report immediately. Reports
@@ -261,7 +278,8 @@ block from interface hints in both CLI modes.
   cannot report releases: before reusing the **same** answer shortcut on the next
   question, move choice focus with j/k, or use a different equivalent shortcut
   (a and 1 both select the first choice). This prevents a held key from answering
-  multiple immutable questions; no extra submit/confirmation step is introduced.
+  multiple immutable questions. Single-answer questions save on any selection;
+  multiple-answer questions save on the first wrong choice or the last correct choice.
 
 Only **active practice intervals** are timed. Reading and earlier-answer review
 count; manual pauses, leaving practice, completed reports, and time between sessions
@@ -327,8 +345,8 @@ is `demo`. Each application persists its own copy on first launch; existing sets
 are never automatically replaced with the demo.
 
 Question arrays retain source IDs, wording, and answer order. Learning lists them
-by ascending ID. Every question has at least two choices and exactly one correct
-answer; blank justifications are shown as missing from the source.
+by ascending ID. Every question has at least two choices and at least one correct
+answer; blank answer-level justifications are shown as missing from the source.
 Files are UTF-8 JSON plain arrays, not objects containing a title or questions field.
 IDs must be unique positive safe integers. Descriptions and choice text must be
 non-blank strings; justifications are strings and may be empty. Additional
@@ -339,6 +357,7 @@ located errors (for example, `[1].id`), never partially imported.
 {
   id: number;
   description: string;
+  justification?: string;
   answers: {
     text: string;
     correct: boolean;
@@ -350,6 +369,26 @@ located errors (for example, `[1].id`), never partially imported.
 The former question bank is preserved locally at gitignored `sets/questions.json`
 and is no longer tracked, imported, or bundled. It can be loaded like any other
 set. Tests use generated fixtures rather than subject content.
+
+### Importing exam PDFs
+
+`yarn import:pdf <input.pdf> [output.json]` converts a ValidExamDumps-style exam
+PDF (for example the CCAR-P study guide) into question JSON; without an output
+path the JSON goes to stdout and counts go to stderr. It drops the diagonal
+watermark, running headers/footers, and Markdown link URLs (keeping link text),
+and exits non-zero on any question it cannot parse. The PDF's explanation becomes
+the correct answer's `justification`; incorrect answers get `""`.
+
+- HOTSPOT questions are image-only and are skipped (their IDs are reported).
+- "Select two" questions are emitted with every correct answer marked and the
+  shared explanation in a question-level `justification`, with empty answer-level
+  justifications. The app accepts these files and supports their multiple answers.
+  The shared explanation is retained as metadata; displaying question-level
+  explanations remains a separate task.
+
+```sh
+yarn import:pdf ~/Downloads/CCAR-P.pdf sets/ccar-p.json
+```
 
 ## Loading question sets
 

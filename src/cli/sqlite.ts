@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { StatementSync } from 'node:sqlite';
 import { validateQuestionSet } from '../data/question-set';
 import type { QuestionSet } from '../data/question-set';
+import { migrateSnapshot } from '../data/migrate-snapshot';
 import {
   emptySnapshot,
   validateSnapshot,
@@ -125,7 +126,7 @@ export class SqliteProgressStorage implements ProgressStorage {
     await mkdir(path.dirname(options.path), { recursive: true });
     const storage = new SqliteProgressStorage(options);
     try {
-      storage.initialize();
+      await storage.initialize();
       await storage.load();
       return storage;
     } catch (error) {
@@ -258,7 +259,16 @@ export class SqliteProgressStorage implements ProgressStorage {
     }
   }
 
-  private initialize(): void {
+  private async initialize(): Promise<void> {
+    const hasMetadata = this.database.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'progress_metadata'",
+    ).get();
+    if (hasMetadata && this.metadata('schemaVersion') === '1') {
+      const serialized = this.setPayload();
+      if (serialized !== null) {
+        await this.parseSet(serialized);
+      }
+    }
     this.database.exec('BEGIN IMMEDIATE');
     try {
       const existing = this.database.prepare(
@@ -272,10 +282,31 @@ export class SqliteProgressStorage implements ProgressStorage {
           CREATE TABLE progress_runs (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
           CREATE TABLE progress_owners (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         `);
-        this.setMetadata('schemaVersion', '1');
+        this.setMetadata('schemaVersion', '2');
         this.setMetadata('revision', '0');
       } else if (existing.length !== tableNames.length) {
         throw new Error('Persisted progress schema is incomplete and cannot be opened safely.');
+      }
+      if (this.metadata('schemaVersion') === '1') {
+        const currentSet = this.currentSetFromCache(this.setPayload());
+        const migrated = migrateSnapshot({
+          schemaVersion: 1,
+          revision: parseRevision(this.metadata('revision')),
+          currentSet,
+          learning: this.rows('progress_learning').map((row) => parsePayload(row, 'questionId')),
+          runs: this.rows('progress_runs').map((row) => parsePayload(row, 'id')),
+          owners: this.rows('progress_owners').map((row) => parsePayload(row, 'runId')),
+        });
+        for (const answer of migrated.learning) {
+          this.database.prepare('UPDATE progress_learning SET payload = ? WHERE id = ?')
+            .run(JSON.stringify(answer), String(answer.questionId));
+        }
+        for (const run of migrated.runs) {
+          this.database.prepare('UPDATE progress_runs SET payload = ? WHERE id = ?')
+            .run(JSON.stringify(run), run.id);
+        }
+        this.setMetadata('schemaVersion', '2');
+        this.setMetadata('revision', String(migrated.revision + 1));
       }
       this.assertSchema();
       parseRevision(this.metadata('revision'));
@@ -287,7 +318,7 @@ export class SqliteProgressStorage implements ProgressStorage {
   }
 
   private assertSchema(): void {
-    if (this.metadata('schemaVersion') !== '1') {
+    if (this.metadata('schemaVersion') !== '2') {
       throw new Error('Unsupported or missing persisted progress schema version.');
     }
   }

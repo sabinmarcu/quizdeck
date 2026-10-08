@@ -151,7 +151,11 @@ export function applyTransaction(current: Snapshot, input: Transaction): Snapsho
             || previous.answers.some((answer, index) => {
               const next = change.run.answers[index];
               return !next || answer.questionId !== next.questionId
-                || answer.answerIndex !== next.answerIndex || answer.outcome !== next.outcome;
+                || answer.answerIndices.length !== next.answerIndices.length
+                || answer.answerIndices.some((choice, choiceIndex) => (
+                  choice !== next.answerIndices[choiceIndex]
+                ))
+                || answer.outcome !== next.outcome;
             })) {
             throw new Error('Saved practice answers, order, and results cannot be rewritten');
           }
@@ -165,7 +169,7 @@ export function applyTransaction(current: Snapshot, input: Transaction): Snapsho
     }
   }
   return validateSnapshot({
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: current.revision + 1,
     currentSet,
     learning: [...learning.values()],

@@ -90,7 +90,11 @@ export function LearningDialogs({
             <li>
               l opens a row. h/l or left/right browse questions; Escape returns to the list.
             </li>
-            <li>a–d or 1–4 save an available answer. Enter activates the native focused button.</li>
+            <li>
+              Use a–d or 1–4 to select a choice. Every selection is accepted immediately: an
+              incorrect choice ends the question, while correct choices accumulate until all are
+              selected. Enter or Space on a focused choice selects it.
+            </li>
             <li>Ctrl-d/u scrolls half a page. ? opens this help.</li>
           </ul>
           <div className={dialogActions}>

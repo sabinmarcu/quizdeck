@@ -35,8 +35,11 @@ import {
   learningResetOpenAtom,
 } from '../state/learning-state';
 import { LearningDialogs } from './Learning.Dialogs';
+import { Markdown } from './Markdown';
 import {
   answer,
+  answerButton,
+  answerFeedback,
   answerLabel,
   answerList,
   button,
@@ -46,6 +49,7 @@ import {
   detailLayout,
   detailRoot,
   empty,
+  explanationText,
   feedback,
   feedbackText,
   filter,
@@ -67,7 +71,6 @@ import {
   question,
   questionHeading,
   questionNavigation,
-  questionText,
   results,
   root,
   rowButton,
@@ -84,8 +87,6 @@ function positiveSafeInteger(value: string) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
-
-const answerKeys = ['a', 'b', 'c', 'd'] as const;
 
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) {
@@ -289,14 +290,15 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
   }, []);
 
   const commitAnswer = useCallback(async (answerIndex: number) => {
-    if (!detail || detail.status !== 'unanswered' || pending) {
+    const choice = detail?.choices[answerIndex];
+    if (!detail || detail.status !== 'unanswered' || pending || !choice || choice.selected) {
       return;
     }
-    const saved = await answerQuestion({
+    const accepted = await answerQuestion({
       questionId: detail.id,
       answerIndex,
     });
-    if (saved) {
+    if (accepted) {
       requestAnimationFrame(() => {
         document.querySelector<HTMLElement>('#learning-question')?.focus();
       });
@@ -509,12 +511,20 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
         }
         return;
       }
-      if (event.key === 'Enter' && event.target instanceof HTMLButtonElement) {
+      if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)
+        && !(event.target instanceof HTMLAnchorElement)) {
+        if (detail?.status === 'unanswered' && !event.repeat) {
+          event.preventDefault();
+          await commitAnswer(answerFocus);
+        }
         return;
       }
       const index = learningAnswerIndex(event.key);
       if (detail && index !== null && index < detail.choices.length) {
         event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
         await commitAnswer(index);
       }
     };
@@ -591,12 +601,18 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
               {' '}
               {detail.id}
             </h2>
-            <p className={questionText}>{detail.description}</p>
+            <Markdown>{detail.description}</Markdown>
             <ol className={answerList} aria-label="Answer choices">
               {detail.choices.map((choice, index) => {
-                const letter = answerKeys[index] ?? String(index + 1);
+                const letter = String.fromCodePoint(65 + index);
+                const { selected } = choice;
                 return (
-                  <li key={`${detail.id}-${choice.text}`}>
+                  <li
+                    key={`${detail.id}-${choice.text}`}
+                    className={answer}
+                    data-correct={choice.feedback?.correct}
+                    data-selected={selected && !answered}
+                  >
                     <button
                       ref={(element) => {
                         if (element) {
@@ -608,38 +624,50 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
                       aria-describedby={choice.feedback
                         ? `feedback-${detail.id}-${index}`
                         : undefined}
-                      className={answer}
-                      data-correct={choice.feedback?.correct}
-                      disabled={answered || pending}
+                      aria-pressed={selected}
+                      className={answerButton}
+                      data-answered={answered}
+                      disabled={answered || pending || selected}
                       type="button"
                       onClick={async () => { await commitAnswer(index); }}
                       onFocus={() => { setAnswerFocus(index); }}
                     >
                       <span className={answerLabel}>
-                        {letter.toUpperCase()}
+                        {letter}
                         .
                         {' '}
-                        {choice.text}
+                        <Markdown mode="inline">{choice.text}</Markdown>
                       </span>
-                      {choice.feedback && (
-                        <span className={feedback} id={`feedback-${detail.id}-${index}`}>
-                          <span className={feedbackText}>
-                            {choice.feedback.selected && <strong>Selected answer. </strong>}
-                            {choice.feedback.correct
-                              ? 'Correct answer.'
-                              : 'Not the correct answer.'}
-                          </span>
-                          <span className={feedbackText}>
-                            <strong>Explanation: </strong>
-                            {choice.feedback.justification}
-                          </span>
-                        </span>
-                      )}
+                      {selected && !choice.feedback && <span>Selected answer.</span>}
                     </button>
+                    {choice.feedback && (
+                      <div className={answerFeedback} id={`feedback-${detail.id}-${index}`}>
+                        <p className={feedbackText}>
+                          {choice.feedback.selected && <strong>Selected answer. </strong>}
+                          {choice.feedback.correct
+                            ? 'Correct answer.'
+                            : 'Not the correct answer.'}
+                        </p>
+                        {choice.feedback.justification && (
+                          <div className={explanationText}>
+                            <strong>Explanation</strong>
+                            <Markdown>{choice.feedback.justification}</Markdown>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
             </ol>
+            {answered && detail.justification && (
+              <div className={feedback}>
+                <div className={explanationText}>
+                  <strong>Explanation</strong>
+                  <Markdown>{detail.justification}</Markdown>
+                </div>
+              </div>
+            )}
             {answered && (
               <p className={empty} data-outcome={detail.status} aria-live="polite">
                 This answer is saved as
@@ -701,7 +729,10 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
     <section className={root} aria-labelledby="learning-heading">
       <header>
         <h2 id="learning-heading">Learn</h2>
-        <p>Choose each answer once. Feedback appears after your answer is saved.</p>
+        <p>
+          Every choice is accepted immediately: an incorrect choice ends the question, while
+          correct choices on multiple-answer questions accumulate until all are selected.
+        </p>
       </header>
       <div className={controls}>
         <label className={search} htmlFor="learning-search">
@@ -943,7 +974,7 @@ export function Learning({ onExit, keyboardEnabled }: Learning.Props) {
                     {' '}
                     {learningStatusLabels[row.status]}
                   </span>
-                  <span>{row.description}</span>
+                  {row.description}
                 </button>
               </li>
             ))}

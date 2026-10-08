@@ -46,7 +46,7 @@ function correctAnswer(questionId: number) {
   const question = set.questions.find((entry) => entry.id === questionId)!;
   return {
     questionId,
-    answerIndex: question.answers.findIndex((answer) => answer.correct),
+    answerIndices: [question.answers.findIndex((answer) => answer.correct)],
     outcome: 'correctly_answered' as const,
   };
 }
@@ -65,6 +65,65 @@ async function openSeeded() {
 }
 
 describe('SQLite progress durability', () => {
+  it('atomically migrates legacy learning and completed runs without losing progress', async () => {
+    const storage = await openSeeded();
+    storage.close();
+    const native = new DatabaseSync(filename);
+    const legacyAnswer = {
+      questionId: 1,
+      answerIndex: 0,
+      outcome: 'correctly_answered',
+    };
+    const legacyRun = {
+      ...createPracticeRun(set, 'legacy-run', 100),
+      questionIds: [1],
+      answers: [legacyAnswer],
+      nextUnanswered: 1,
+      viewedPosition: 0,
+      status: 'completed',
+      completedAt: 200,
+      elapsedMs: 80,
+      result: {
+        correctCount: 1,
+        percentage: 100,
+      },
+    };
+    native.prepare('INSERT INTO progress_learning VALUES (?, ?)').run('1', JSON.stringify(legacyAnswer));
+    native.prepare('INSERT INTO progress_runs VALUES (?, ?)').run('legacy-run', JSON.stringify(legacyRun));
+    native.exec("UPDATE progress_metadata SET value = '1' WHERE key = 'schemaVersion'");
+    native.close();
+    const reopened = await SqliteProgressStorage.open({ path: filename });
+    opened.push(reopened);
+    const migrated = await reopened.load();
+    expect(migrated.learning).toEqual([correctAnswer(1)]);
+    expect(migrated.runs[0]).toEqual({
+      ...legacyRun,
+      answers: [correctAnswer(1)],
+    });
+    expect(migrated.revision).toBe(2);
+    reopened.close();
+    const again = await SqliteProgressStorage.open({ path: filename });
+    opened.push(again);
+    expect(await again.load()).toEqual(migrated);
+  });
+
+  it('rolls back a legacy upgrade when recorded correctness is corrupt', async () => {
+    const storage = await openSeeded();
+    storage.close();
+    const native = new DatabaseSync(filename);
+    const legacy = JSON.stringify({
+      questionId: 1,
+      answerIndex: 0,
+      outcome: 'incorrectly_answered',
+    });
+    native.prepare('INSERT INTO progress_learning VALUES (?, ?)').run('1', legacy);
+    native.exec("UPDATE progress_metadata SET value = '1' WHERE key = 'schemaVersion'");
+    await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow('correctness');
+    expect(native.prepare("SELECT value FROM progress_metadata WHERE key = 'schemaVersion'").get()?.value).toBe('1');
+    expect(native.prepare('SELECT payload FROM progress_learning WHERE id = ?').get('1')?.payload).toBe(legacy);
+    native.close();
+  });
+
   it('keeps a set and recorded outcomes through closing and reopening', async () => {
     const storage = await openSeeded();
     await storage.commit({
@@ -185,10 +244,10 @@ describe('SQLite progress durability', () => {
     });
     storage.close();
     const native = new DatabaseSync(filename);
-    native.exec("UPDATE progress_metadata SET value = '2' WHERE key = 'schemaVersion'");
+    native.exec("UPDATE progress_metadata SET value = '3' WHERE key = 'schemaVersion'");
     await expect(SqliteProgressStorage.open({ path: filename })).rejects.toThrow();
     expect(native.prepare('SELECT COUNT(*) AS count FROM progress_learning').get()?.count).toBe(1);
-    expect(native.prepare("SELECT value FROM progress_metadata WHERE key = 'schemaVersion'").get()?.value).toBe('2');
+    expect(native.prepare("SELECT value FROM progress_metadata WHERE key = 'schemaVersion'").get()?.value).toBe('3');
     native.close();
   });
 

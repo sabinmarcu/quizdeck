@@ -401,11 +401,6 @@ export const questionHeading = style({
   selectors: statusColors,
 });
 
-export const questionText = style({
-  margin: 0,
-  overflowWrap: 'anywhere',
-});
-
 export const answerList = style({
   display: 'grid',
   gap: theme.grid.m,
@@ -423,11 +418,10 @@ export const answer = style({
   borderRadius: theme.grid.xs,
   color: theme.colors.background.text,
   display: 'grid',
-  gap: theme.grid.s,
+  gap: 0,
   inlineSize: '100%',
   minBlockSize: theme.grid.xl,
   minInlineSize: 0,
-  padding: theme.grid.m,
   textAlign: 'start',
   selectors: {
     '&[data-correct]': {
@@ -440,6 +434,33 @@ export const answer = style({
     '&[data-correct="false"]': {
       color: theme.colors.error.base,
       borderColor: theme.colors.error.base,
+    },
+    '&[data-selected="true"]': {
+      background: theme.colors.info.muted,
+      borderColor: theme.colors.info.base,
+    },
+  },
+});
+
+export const answerButton = style({
+  background: 'transparent',
+  borderInlineStart: 0,
+  borderInlineEnd: 0,
+  borderBlockStart: 0,
+  borderBlockEnd: 0,
+  borderRadius: 'inherit',
+  color: 'inherit',
+  cursor: 'pointer',
+  display: 'grid',
+  gap: theme.grid.s,
+  inlineSize: '100%',
+  minBlockSize: theme.grid.xl,
+  minInlineSize: 0,
+  padding: theme.grid.m,
+  textAlign: 'start',
+  selectors: {
+    '&[data-answered="true"]': {
+      paddingBlockEnd: theme.grid.s,
     },
     '&:focus-visible': focusOutline,
     '&:disabled': {
@@ -461,10 +482,21 @@ export const feedback = style({
   paddingInlineStart: theme.grid.m,
 });
 
+export const answerFeedback = style([feedback, {
+  marginBlockEnd: theme.grid.m,
+  marginInline: theme.grid.m,
+}]);
+
 export const feedbackText = style({
   margin: 0,
+  minInlineSize: 0,
   overflowWrap: 'anywhere',
 });
+
+export const explanationText = style([feedbackText, {
+  display: 'grid',
+  gap: theme.grid.xs,
+}]);
 
 export const empty = style({
   background: theme.colors.info.muted,

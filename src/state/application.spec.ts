@@ -14,6 +14,7 @@ import {
 } from 'vitest';
 import { SqliteProgressStorage } from '../cli/sqlite';
 import { createFixtureSet } from '../data/question-set.fixture';
+import { createQuestionSet } from '../data/question-set';
 import { StorageConflictError } from '../data/storage';
 import {
   actionErrorAtom,
@@ -23,6 +24,7 @@ import {
   loadQuestionSetAtom,
   refreshProgressAtom,
   startupAtom,
+  setInfoAtom,
 } from './application';
 import type { AppSession } from './application';
 import {
@@ -62,6 +64,56 @@ function newSession() {
 }
 
 describe('Jotai committed progress projections', () => {
+  it('counts only answers without either an answer-level or shared explanation', async () => {
+    const set = await createQuestionSet([
+      {
+        id: 1,
+        shared: 'Shared source explanation',
+        explanations: ['', '', ''],
+      },
+      {
+        id: 2,
+        shared: '',
+        explanations: ['Own source explanation', ''],
+      },
+      {
+        id: 3,
+        shared: undefined,
+        explanations: ['', ''],
+      },
+    ].map(({
+      id, shared, explanations,
+    }) => ({
+      id,
+      description: `Question ${id}`,
+      justification: shared,
+      answers: explanations.map((justification, index) => ({
+        text: `Choice ${index}`,
+        correct: index === 0,
+        justification,
+      })),
+    })), {
+      name: 'Explanation coverage',
+      source: 'file',
+      loadedAt: 0,
+    });
+    const current = newSession();
+    await current.start();
+    await current.store.set(commitAtom, [{
+      kind: 'replaceSet',
+      set,
+    }]);
+    expect(current.store.get(setInfoAtom)).toEqual({
+      questionCount: 3,
+      answerCount: 7,
+      missingExplanationCount: 3,
+    });
+    current.close();
+    const reopened = newSession();
+    await reopened.start();
+    expect(reopened.store.get(setInfoAtom)!.missingExplanationCount).toBe(3);
+  });
+
   it('hydrates existing records and does not overwrite them with initial empty state', async () => {
     const currentSet = await createFixtureSet(4);
     const storage = await SqliteProgressStorage.open({ path: path.join(directory, 'progress.sqlite') });
@@ -82,7 +134,7 @@ describe('Jotai committed progress projections', () => {
     const question = loaded.set.questions[0]!;
     const answer = {
       questionId: question.id,
-      answerIndex: question.answers.findIndex((choice) => choice.correct),
+      answerIndices: [question.answers.findIndex((choice) => choice.correct)],
       outcome: 'correctly_answered' as const,
     };
     await first.store.set(commitAtom, [{

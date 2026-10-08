@@ -35,7 +35,7 @@ function activeSnapshot(): Snapshot {
     questionIds: [1, 2, 3],
     answers: [{
       questionId: 1,
-      answerIndex: 1,
+      answerIndices: [1],
       outcome: 'incorrectly_answered',
     }],
     nextUnanswered: 1,
@@ -55,7 +55,7 @@ function activeSnapshot(): Snapshot {
     }],
     learning: [{
       questionId: 1,
-      answerIndex: 1,
+      answerIndices: [1],
       outcome: 'incorrectly_answered',
     }],
   };
@@ -193,7 +193,7 @@ describe('transaction revision and ownership', () => {
           kind: 'putLearning',
           answer: {
             questionId: 1,
-            answerIndex: 1,
+            answerIndices: [1],
             outcome: 'incorrectly_answered',
           },
         },
@@ -268,7 +268,7 @@ describe('transaction revision and ownership', () => {
           ...run,
           answers: [{
             questionId: 1,
-            answerIndex: 0,
+            answerIndices: [0],
             outcome: 'correctly_answered',
           }],
           elapsedMs: 499,

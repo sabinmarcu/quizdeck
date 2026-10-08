@@ -105,6 +105,169 @@ async function record(questionId: number, correct: boolean) {
 }
 
 describe('persisted learning workflow', () => {
+  it('searches visible Markdown wording rather than syntax or hidden link destinations', async () => {
+    const fixture = ready().set.questions[0]!;
+    const replaceDescription = async (description: string) => {
+      const currentSet = await createQuestionSet([{
+        ...fixture,
+        description,
+      }], {
+        name: 'Markdown search',
+        source: 'file',
+        loadedAt: 0,
+      });
+      await session.store.set(commitAtom, [{
+        kind: 'replaceSet',
+        set: currentSet,
+      }]);
+    };
+    await replaceDescription('Select **both** [safe controls](https://example.com/private-path).');
+    session.store.set(learningQueryAtom, 'select both safe controls');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
+    session.store.set(learningQueryAtom, 'private-path');
+    expect(session.store.get(learningRowsAtom)).toEqual([]);
+    session.store.set(learningQueryAtom, '1');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
+    await replaceDescription('Different **visible** wording.');
+    session.store.set(learningQueryAtom, 'select both safe controls');
+    expect(session.store.get(learningRowsAtom)).toEqual([]);
+    session.store.set(learningQueryAtom, 'different visible wording');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
+  });
+
+  it.each([
+    {
+      indices: [0, 2],
+      outcome: 'correctly_answered',
+    },
+    {
+      indices: [1],
+      outcome: 'incorrectly_answered',
+    },
+  ])('reveals shared explanations only after $outcome', async ({ indices, outcome }) => {
+    const shared = 'Both correct choices belong together.';
+    const own = 'The middle choice is not applicable.';
+    const multiple = await createQuestionSet([{
+      id: 1,
+      description: 'Select both applicable choices',
+      justification: shared,
+      answers: [true, false, true].map((correct, index) => ({
+        text: `Choice ${index}`,
+        correct,
+        justification: index === 1 ? own : '',
+      })),
+    }], {
+      name: 'Shared',
+      source: 'file',
+      loadedAt: 0,
+    });
+    await session.store.set(commitAtom, [{
+      kind: 'replaceSet',
+      set: multiple,
+    }]);
+    session.store.set(openLearningQuestionAtom, 1);
+    expect(session.store.get(learningDetailAtom)!.justification).toBeNull();
+    for (const [position, answerIndex] of indices.entries()) {
+      await session.store.set(answerLearningAtom, {
+        questionId: 1,
+        answerIndex,
+      });
+      if (position < indices.length - 1) {
+        const partial = session.store.get(learningDetailAtom)!;
+        expect(partial.status).toBe('unanswered');
+        expect(partial.justification).toBeNull();
+        expect(partial.choices.every((choice) => choice.feedback === null)).toBe(true);
+      }
+    }
+    session.close();
+    session = createAppSession(() => SqliteProgressStorage.open({ path: filename }));
+    await session.start();
+    session.store.set(openLearningQuestionAtom, 1);
+    const detail = session.store.get(learningDetailAtom)!;
+    expect(detail.status).toBe(outcome);
+    expect(detail.justification).toBe(shared);
+    expect(detail.choices.map((choice) => choice.feedback?.justification))
+      .toEqual([null, own, null]);
+  });
+
+  it.each([
+    {
+      indices: [2, 0],
+      outcome: 'correctly_answered',
+    },
+    {
+      indices: [0, 0, 2],
+      outcome: 'correctly_answered',
+    },
+    {
+      indices: [0, 1],
+      outcome: 'incorrectly_answered',
+    },
+    {
+      indices: [1],
+      outcome: 'incorrectly_answered',
+    },
+    {
+      indices: [2, 1],
+      outcome: 'incorrectly_answered',
+    },
+  ])('accepts multi-answer choices progressively: $indices', async ({ indices, outcome }) => {
+    const multiple = await createQuestionSet([{
+      id: 1,
+      description: 'Select both correct choices',
+      answers: [true, false, true].map((correct, index) => ({
+        text: `Choice ${index}`,
+        correct,
+        justification: '',
+      })),
+    }], {
+      name: 'Multiple',
+      source: 'file',
+      loadedAt: 0,
+    });
+    await session.store.set(commitAtom, [{
+      kind: 'replaceSet',
+      set: multiple,
+    }]);
+    session.store.set(openLearningQuestionAtom, 1);
+    const selected = new Set<number>();
+    for (const [position, answerIndex] of indices.entries()) {
+      expect(await session.store.set(answerLearningAtom, {
+        questionId: 1,
+        answerIndex,
+      })).toBe(true);
+      selected.add(answerIndex);
+      const detail = session.store.get(learningDetailAtom)!;
+      expect(detail.choices.map((choice) => choice.selected)).toEqual(
+        [0, 1, 2].map((index) => selected.has(index)),
+      );
+      if (position < indices.length - 1) {
+        expect(detail.status).toBe('unanswered');
+        expect(detail.choices.every((choice) => choice.feedback === null)).toBe(true);
+        expect(ready().snapshot.learning).toEqual([]);
+        expect(session.store.get(learningCountsAtom).completed).toBe(0);
+      }
+    }
+    expect(session.store.get(learningDetailAtom)!.status).toBe(outcome);
+    expect(await session.store.set(answerLearningAtom, {
+      questionId: 1,
+      answerIndex: 2,
+    })).toBe(false);
+    session.close();
+    session = createAppSession(() => SqliteProgressStorage.open({ path: filename }));
+    await session.start();
+    session.store.set(openLearningQuestionAtom, 1);
+    const restored = session.store.get(learningDetailAtom)!;
+    expect(restored.status).toBe(outcome);
+    expect(restored.choices.map((choice) => choice.feedback?.selected)).toEqual(
+      [0, 1, 2].map((index) => selected.has(index)),
+    );
+    expect(session.store.get(learningCountsAtom)).toEqual({
+      completed: 1,
+      total: 1,
+    });
+  });
+
   it('rejects empty special-key payloads and pasted strings as answer shortcuts', () => {
     for (const key of ['', 'Delete', '\t', ' ', 'ab', '12', '4.0']) {
       expect(learningAnswerIndex(key)).toBeNull();

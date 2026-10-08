@@ -10,6 +10,7 @@ import {
   practiceSelectedIdAtom,
   practiceOwnedAtom,
   practiceElapsedAtom,
+  practiceSelectionAtom,
 } from './practice-session';
 
 export {
@@ -44,6 +45,7 @@ export interface PracticeView {
   nextUnanswered: number;
   total: number;
   description: string;
+  multiple: boolean;
   choices: Array<{ answerIndex: number; text: string; selected: boolean }>;
   canAnswer: boolean;
   canPrevious: boolean;
@@ -105,18 +107,24 @@ export const practiceViewAtom = atom<PracticeView | null>((get) => {
   const saved = run.answers[run.viewedPosition];
   const owned = get(practiceOwnedAtom);
   const answerOrder = get(practiceAnswerOrderAtom);
+  const selection = get(practiceSelectionAtom);
+  const selectedIndices = saved?.answerIndices
+    ?? (selection?.runId === run.id && selection.position === run.viewedPosition
+      ? selection.answerIndices
+      : []);
   return {
     runId: run.id,
     position: run.viewedPosition,
     nextUnanswered: run.nextUnanswered,
     total: run.questionIds.length,
     description: question.description,
+    multiple: question.answers.reduce((count, answer) => count + Number(answer.correct), 0) > 1,
     choices: answerOrder.map((answerIndex) => {
       const choice = question.answers[answerIndex]!;
       return {
         answerIndex,
         text: choice.text,
-        selected: saved?.answerIndex === answerIndex,
+        selected: selectedIndices.includes(answerIndex),
       };
     }),
     canAnswer: owned && run.status === 'active' && run.viewedPosition === run.nextUnanswered,

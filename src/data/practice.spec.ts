@@ -9,6 +9,7 @@ import type {
   QuestionSet,
 } from './question-set';
 import { createFixtureSet } from './question-set.fixture';
+import { createQuestionSet } from './question-set';
 import {
   answerPracticeRun,
   createPracticeRun,
@@ -100,37 +101,193 @@ describe('stable practice answer order', () => {
 });
 
 describe('sequential answers and completed report', () => {
+  it('withholds shared explanations until completion and preserves answer-specific explanations', async () => {
+    const shared = 'Both applicable choices are explained together.';
+    const own = 'This choice has its own explanation.';
+    const set = await createQuestionSet([{
+      id: 1,
+      description: 'Select both applicable choices',
+      justification: shared,
+      answers: [true, false, true].map((correct, index) => ({
+        text: `Shared choice ${index}`,
+        correct,
+        justification: index === 1 ? own : '',
+      })),
+    }, {
+      id: 2,
+      description: 'Select the only correct choice',
+      answers: [true, false].map((correct, index) => ({
+        text: `Single choice ${index}`,
+        correct,
+        justification: index === 0 ? own : '',
+      })),
+    }], {
+      name: 'Shared',
+      source: 'file',
+      loadedAt: 0,
+    });
+    const initial = run(set);
+    const partial = answerPracticeRun(initial, set, {
+      position: 0,
+      answerIndices: [0],
+      elapsedMs: 50,
+      now: 150,
+    });
+    expect(practiceReport(partial, set)).toBeNull();
+    const firstAnswered = answerPracticeRun(partial, set, {
+      position: 0,
+      answerIndices: [0, 2],
+      elapsedMs: 100,
+      now: 200,
+    });
+    expect(practiceReport(firstAnswered, set)).toBeNull();
+    const completed = answerPracticeRun(firstAnswered, set, {
+      position: 1,
+      answerIndices: [0],
+      elapsedMs: 150,
+      now: 250,
+    });
+    const report = practiceReport(completed, set)!;
+    const explained = report.questions[0]!;
+    expect(explained.justification).toBe(shared);
+    expect(explained.choices.find((choice) => choice.text === 'Shared choice 1')!.justification)
+      .toBe(own);
+    expect(explained.choices.filter((choice) => choice.text !== 'Shared choice 1')
+      .map((choice) => choice.justification)).toEqual([null, null]);
+    const missing = report.questions[1]!;
+    expect(missing.justification).toBeNull();
+    expect(missing.choices.find((choice) => choice.text === 'Single choice 1')!.justification)
+      .toBe('No explanation provided in the source.');
+  });
+
+  it('keeps a correct partial selection unanswered until all correct choices are selected', async () => {
+    const set = await createQuestionSet([{
+      id: 1,
+      description: 'Select both correct choices',
+      answers: [true, false, true].map((correct, index) => ({
+        text: `Choice ${index}`,
+        correct,
+        justification: '',
+      })),
+    }], {
+      name: 'Multiple',
+      source: 'file',
+      loadedAt: 0,
+    });
+    const current = run(set);
+    const partial = answerPracticeRun(current, set, {
+      position: 0,
+      answerIndices: [0],
+      elapsedMs: 500,
+      now: 600,
+    });
+    expect(partial).toBe(current);
+    expect(partial.answers).toEqual([]);
+    expect(practiceReport(partial, set)).toBeNull();
+    const complete = answerPracticeRun(partial, set, {
+      position: 0,
+      answerIndices: [0, 2],
+      elapsedMs: 600,
+      now: 700,
+    });
+    expect(complete.result).toEqual({
+      correctCount: 1,
+      percentage: 100,
+    });
+  });
+
+  it.each([
+    {
+      indices: [0, 2],
+      correct: true,
+    },
+    {
+      indices: [2, 0],
+      correct: true,
+    },
+    {
+      indices: [0, 1, 2],
+      correct: false,
+    },
+    {
+      indices: [1],
+      correct: false,
+    },
+  ])('scores and reports the complete selection $indices', async ({ indices, correct }) => {
+    const set = await createQuestionSet([{
+      id: 1,
+      description: 'Select both correct choices',
+      answers: [true, false, true].map((value, index) => ({
+        text: `Choice ${index}`,
+        correct: value,
+        justification: '',
+      })),
+    }], {
+      name: 'Multiple',
+      source: 'file',
+      loadedAt: 0,
+    });
+    const completed = answerPracticeRun(run(set), set, {
+      position: 0,
+      answerIndices: indices,
+      elapsedMs: 500,
+      now: 600,
+    });
+    expect(completed.result).toEqual({
+      correctCount: correct ? 1 : 0,
+      percentage: correct ? 100 : 0,
+    });
+    const report = practiceReport(completed, set)!;
+    const selected = report.questions[0]!.choices.filter((choice) => choice.selected);
+    expect(selected.map((choice) => choice.text)
+      .toSorted((first, second) => first.localeCompare(second)))
+      .toEqual(indices.map((index) => `Choice ${index}`)
+        .toSorted((first, second) => first.localeCompare(second)));
+  });
+
+  it.each([[], [0, 0], [-1], [0.5], [2]].map((indices) => ({ indices })))('rejects invalid selections $indices without advancing', ({ indices }) => {
+    const before = run(oneQuestion);
+    expect(() => answerPracticeRun(before, oneQuestion, {
+      position: 0,
+      answerIndices: indices,
+      elapsedMs: 500,
+      now: 600,
+    })).toThrow();
+    expect(before.nextUnanswered).toBe(0);
+    expect(before.answers).toEqual([]);
+  });
+
   it('records only the frontier and rejects edits, skips, and unavailable choices', () => {
     const before = run(threeQuestions);
     const after = answerPracticeRun(before, threeQuestions, {
       position: 0,
-      answerIndex: 1,
+      answerIndices: [1],
       elapsedMs: 500,
       now: 600,
     });
     expect(before.answers).toEqual([]);
     expect(after.answers).toEqual([{
       questionId: 1,
-      answerIndex: 1,
+      answerIndices: [1],
       outcome: 'incorrectly_answered',
     }]);
     expect(after.nextUnanswered).toBe(1);
     expect(after.viewedPosition).toBe(1);
     expect(() => answerPracticeRun(after, threeQuestions, {
       position: 0,
-      answerIndex: 0,
+      answerIndices: [0],
       elapsedMs: 700,
       now: 800,
     })).toThrow('current');
     expect(() => answerPracticeRun(after, threeQuestions, {
       position: 2,
-      answerIndex: 0,
+      answerIndices: [0],
       elapsedMs: 700,
       now: 800,
     })).toThrow('current');
     expect(() => answerPracticeRun(after, threeQuestions, {
       position: 1,
-      answerIndex: 2,
+      answerIndices: [2],
       elapsedMs: 700,
       now: 800,
     })).toThrow('does not exist');
@@ -141,7 +298,7 @@ describe('sequential answers and completed report', () => {
     for (let position = 0; position < 3; position += 1) {
       current = answerPracticeRun(current, threeQuestions, {
         position,
-        answerIndex: position === 0 ? 1 : 0,
+        answerIndices: [position === 0 ? 1 : 0],
         elapsedMs: position * 1000,
         now: 1000 + position * 1000,
       });
@@ -162,7 +319,7 @@ describe('sequential answers and completed report', () => {
     expect(report.questions).toHaveLength(3);
     expect(() => answerPracticeRun(current, threeQuestions, {
       position: 2,
-      answerIndex: 0,
+      answerIndices: [0],
       elapsedMs: 4000,
       now: 4000,
     })).toThrow('current');
@@ -187,7 +344,7 @@ describe('sequential answers and completed report', () => {
     for (const [position, answerIndex] of selectedIndexes.entries()) {
       current = answerPracticeRun(current, threeQuestions, {
         position,
-        answerIndex,
+        answerIndices: [answerIndex],
         elapsedMs: position * 1000,
         now: 1000 + position * 1000,
       });

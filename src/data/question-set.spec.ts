@@ -54,21 +54,23 @@ describe('question set trust boundary', () => {
     }
   });
 
-  it('rejects a source without exactly one correct choice', () => {
+  it('requires a correct choice and preserves multiple correct choices', () => {
     expect(() => questionsSchema.parse([{
       ...question,
       answers: question.answers.map((answer) => ({
         ...answer,
         correct: false,
       })),
-    }])).toThrow('exactly one');
-    expect(() => questionsSchema.parse([{
+    }])).toThrow('at least one');
+    const multiple = {
       ...question,
       answers: question.answers.map((answer) => ({
         ...answer,
         correct: true,
       })),
-    }])).toThrow('exactly one');
+    };
+    expect(questionsSchema.parse([multiple])[0]?.answers.map((answer) => answer.correct))
+      .toEqual([true, true, true]);
   });
 
   it('rejects blank question and answer content', () => {

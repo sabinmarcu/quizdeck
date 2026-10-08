@@ -25,6 +25,7 @@ import {
   startPracticeAtom,
   viewPracticeAtom,
 } from '../state/practice';
+import { Markdown } from './Markdown';
 import {
   answer,
   answerLabel,
@@ -48,8 +49,6 @@ import {
   secondaryButton,
   shortcutHelp,
 } from './Practice.css';
-
-const choiceLetters = ['A', 'B', 'C', 'D'] as const;
 
 const practiceStatusLabels = {
   active: 'Active practice run',
@@ -155,13 +154,12 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
 
   const commitAnswer = useCallback(async (displayIndex: number) => {
     const choice = view?.choices[displayIndex];
-    if (!view || !view.canAnswer || busy || !choice) {
+    if (!view || !view.canAnswer || busy || !choice || choice.selected) {
       return;
     }
-    const { position, runId } = view;
     if (await answerQuestion({
-      runId,
-      position,
+      runId: view.runId,
+      position: view.position,
       answerIndex: choice.answerIndex,
     })) {
       setChoiceFocus(0);
@@ -380,7 +378,7 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
         return;
       }
       if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)
-        && view?.canAnswer && !event.repeat) {
+        && !(event.target instanceof HTMLAnchorElement) && view?.canAnswer && !event.repeat) {
         event.preventDefault();
         await commitAnswer(choiceFocus);
         return;
@@ -431,7 +429,9 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
       <strong>Practice keyboard help</strong>
       <span>History: j/k focuses actions, Enter opens, n starts a new run, gg/G reaches ends.</span>
       <span>
-        Questions: j/k focuses choices, a–d/1–4 or Enter answers; h/l reviews saved answers.
+        Questions: j/k focuses choices. Use a–d/1–4 or Enter to select a choice. Every selection
+        is accepted immediately: an incorrect choice advances, while correct choices accumulate
+        until all are selected. Enter or Space activates a focused choice.
       </span>
       <span>p pauses/resumes; Escape returns to history.</span>
       <span>Reports: j/k reads, gg/G reaches ends; Ctrl-d/u scrolls half a page.</span>
@@ -506,7 +506,9 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                     {' '}
                     {questionEntry.questionId}
                   </h3>
-                  <p className={reportText}>{questionEntry.description}</p>
+                  <div className={reportText}>
+                    <Markdown headingLevel={4}>{questionEntry.description}</Markdown>
+                  </div>
                 </header>
                 <ol
                   className={answers}
@@ -516,21 +518,29 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                     <li key={`${questionEntry.position}-${choice.text}`}>
                       <div className={reportChoice} data-correct={choice.correct}>
                         <strong>
-                          {choiceLetters[index] ?? String(index + 1)}
+                          {String.fromCodePoint(65 + index)}
                           .
                           {' '}
-                          {choice.text}
+                          <Markdown mode="inline">{choice.text}</Markdown>
                         </strong>
                         <span>{choice.selected ? 'Selected answer.' : 'Not selected.'}</span>
                         <span>{choice.correct ? 'Correct answer.' : 'Incorrect answer.'}</span>
-                        <span>
-                          <strong>Explanation: </strong>
-                          {choice.justification}
-                        </span>
+                        {choice.justification && (
+                          <div>
+                            <strong>Explanation</strong>
+                            <Markdown headingLevel={4}>{choice.justification}</Markdown>
+                          </div>
+                        )}
                       </div>
                     </li>
                   ))}
                 </ol>
+                {questionEntry.justification && (
+                  <div className={reportText}>
+                    <strong>Explanation</strong>
+                    <Markdown headingLevel={4}>{questionEntry.justification}</Markdown>
+                  </div>
+                )}
               </article>
             </li>
           ))}
@@ -562,7 +572,9 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
               <span>{formatPracticeDuration(view.elapsedMs)}</span>
               <span>{view.paused ? 'Paused' : 'In progress'}</span>
             </p>
-            <p className={reportText}>{view.description}</p>
+            <div className={reportText}>
+              <Markdown>{view.description}</Markdown>
+            </div>
           </header>
           {practiceError && <p className={error} role="alert">{practiceError}</p>}
           {view.paused && (
@@ -571,33 +583,36 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
             </p>
           )}
           <ol className={answers} aria-label="Practice answer choices">
-            {view.choices.map((choice, index) => (
-              <li key={`${view.position}-${choice.text}`}>
-                <button
-                  ref={(element) => {
-                    if (element) {
-                      choiceButtons.current.set(index, element);
-                    } else {
-                      choiceButtons.current.delete(index);
-                    }
-                  }}
-                  aria-pressed={choice.selected}
-                  className={answer}
-                  disabled={!view.canAnswer || busy}
-                  type="button"
-                  onClick={async () => { await commitAnswer(index); }}
-                  onFocus={() => { setChoiceFocus(index); }}
-                >
-                  <span className={answerLabel}>
-                    {choiceLetters[index] ?? String(index + 1)}
-                    .
-                    {' '}
-                    {choice.text}
-                  </span>
-                  {choice.selected && <span>Recorded answer.</span>}
-                </button>
-              </li>
-            ))}
+            {view.choices.map((choice, index) => {
+              const { selected } = choice;
+              return (
+                <li key={`${view.position}-${choice.text}`}>
+                  <button
+                    ref={(element) => {
+                      if (element) {
+                        choiceButtons.current.set(index, element);
+                      } else {
+                        choiceButtons.current.delete(index);
+                      }
+                    }}
+                    aria-pressed={selected}
+                    className={answer}
+                    disabled={!view.canAnswer || busy || selected}
+                    type="button"
+                    onClick={async () => { await commitAnswer(index); }}
+                    onFocus={() => { setChoiceFocus(index); }}
+                  >
+                    <span className={answerLabel}>
+                      {String.fromCodePoint(65 + index)}
+                      .
+                      {' '}
+                      <Markdown mode="inline">{choice.text}</Markdown>
+                    </span>
+                    {selected && <span>Selected answer.</span>}
+                  </button>
+                </li>
+              );
+            })}
           </ol>
           <div className={controls}>
             <button
@@ -670,7 +685,9 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
           {' '}
           {currentTotal}
           {' '}
-          questions in a saved randomized order. Answers are recorded immediately.
+          questions in a saved randomized order. Every choice is accepted immediately: an
+          incorrect choice advances, while correct choices on multiple-answer questions accumulate
+          until all are selected.
         </p>
       </header>
       {practiceError && <p className={error} role="alert">{practiceError}</p>}

@@ -137,6 +137,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
   const listItems = useMemo(() => listViewportItems(rows, width), [rows, width]);
   const listLines = useMemo<QuestionLine[]>(() => listItems.flatMap((item) => [...item.lines, { text: '' }]), [listItems]);
   const activeListItem = listItems[focusedIndex] ?? null;
+  const answered = detail !== null && detail.status !== 'unanswered';
   const detailLines = useMemo(() => {
     if (!detail) {
       return [];
@@ -145,6 +146,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
       title: `Question ${detail.id} · ${learningStatusLabels[detail.status]}`,
       statusColor: statusColors[detail.status],
       description: detail.description,
+      justification: detail.justification,
       choices: detail.choices,
       canAnswer: detail.status === 'unanswered',
       afterword: detail.status !== 'unanswered'
@@ -156,7 +158,6 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
   const visibleDetailOffset = Math.min(detailOffset, detailLimit);
   const visibleListOffset = activeListItem?.start ?? 0;
   const answerFocus = detail ? Math.min(choiceFocus, detail.choices.length - 1) : 0;
-  const answered = detail !== null && detail.choices[0]?.feedback !== null;
 
   useEffect(() => {
     const resize = () => {
@@ -210,11 +211,11 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
     setResetOpen(false);
   };
 
-  const answer = (answerIndex: number) => {
-    if (!detail || answered || pending || answerIndex >= detail.choices.length) {
+  const answerChoice = async (answerIndex: number) => {
+    if (!detail || answered || pending || answerIndex < 0 || answerIndex >= detail.choices.length) {
       return;
     }
-    answerQuestion({
+    await answerQuestion({
       questionId: detail.id,
       answerIndex,
     });
@@ -325,7 +326,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
       firstGAt.current = null;
     }
     if (detail) {
-      const interaction = questionAction(navigation, key);
+      const interaction = questionAction(navigation, key, detail.multiple);
       if (!interaction) {
         return;
       }
@@ -360,7 +361,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
           break;
         }
         case 'answer': {
-          answer(interaction.index ?? answerFocus);
+          answerChoice(interaction.index ?? answerFocus);
           break;
         }
         default: {
@@ -419,7 +420,7 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
         </Text>
       );
     });
-  const detailControls = `${questionControls} · r Reset all`;
+  const detailControls = `${questionControls(detail?.multiple ?? false)} · r Reset all`;
   const listControls = [
     '/ search · f filter · c clear · l/right/Enter open · ',
     'h/left leave · r Reset all · ? help · q quit',
@@ -469,8 +470,9 @@ export function InkLearning({ onExit, onQuit }: InkLearning.Props) {
             In detail, h/l or left/right move through filtered results; Esc returns to the list.
           </Text>
           <Text>
-            {'j/k selects a choice only; Enter, a-d, or 1-4 saves '}
-            the selected answer once.
+            {'Single-answer questions save the focused choice with Enter, a-d, or 1-4. '}
+            Multiple-answer questions save each selected choice immediately; use Enter or Space for
+            the focused choice, or a-d and 1-4 for a specific choice.
           </Text>
           <Text>
             {'r opens Reset all learning progress confirmation · '}

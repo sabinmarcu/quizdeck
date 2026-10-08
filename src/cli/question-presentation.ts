@@ -1,11 +1,16 @@
 import type { Key } from 'ink';
 import wrapAnsi from 'wrap-ansi';
 import { learningAnswerIndex } from '../state/learning';
+import { terminalMarkdown } from './markdown';
 
-export const questionControls = [
-  'h/l or left/right previous/next · Esc back · j/k focus or read · ',
-  'Enter/a-d/1-4 answer',
-].join('');
+export function questionControls(multiple: boolean) {
+  return [
+    'h/l or left/right previous/next · Esc back · j/k focus or read · ',
+    multiple
+      ? 'Enter/Space/a-d/1-4 select choice'
+      : 'Enter/a-d/1-4 answer',
+  ].join('');
+}
 
 export interface QuestionLine {
   text: string;
@@ -20,10 +25,11 @@ export interface QuestionContent {
   notice?: string;
   canAnswer: boolean;
   afterword?: string;
+  justification?: string | null;
   choices: ReadonlyArray<{
     text: string;
     selected?: boolean;
-    feedback?: null | { selected: boolean; correct: boolean; justification: string };
+    feedback?: null | { selected: boolean; correct: boolean; justification: string | null };
   }>;
 }
 
@@ -42,33 +48,42 @@ export function questionContentLines(content: QuestionContent, width: number): Q
     },
     ...(content.notice ? [{ text: content.notice }] : []),
     { text: ' ' },
-    { text: content.description },
+    { text: terminalMarkdown(content.description) },
     { text: ' ' },
     { text: ' ' },
     ...content.choices.flatMap((choice, index): QuestionLine[] => {
       const label = String.fromCodePoint(65 + index);
+      const text = terminalMarkdown(choice.text, { inline: true });
       if (choice.feedback) {
-        const color = choice.feedback.correct ? 'green' : 'red';
+        const color: QuestionLine['color'] = choice.feedback.correct ? 'green' : 'red';
         return [
           {
-            text: `${label}. ${choice.text} [${feedbackLabel(choice.feedback.selected, choice.feedback.correct)}]`,
+            text: `${label}. ${text} [${feedbackLabel(choice.feedback.selected, choice.feedback.correct)}]`,
             color,
           },
-          {
-            text: `   Explanation: ${choice.feedback.justification}`,
-            color,
-          },
+          ...(choice.feedback.justification
+            ? [{
+              text: `   Explanation:\n${terminalMarkdown(choice.feedback.justification)}`,
+              color,
+            }]
+            : []),
           { text: '' },
         ];
       }
       return [
         {
-          text: `  ${label}. ${choice.text}${choice.selected ? ' [selected]' : ''}`,
+          text: `  ${label}. ${text}${choice.selected ? ' [selected]' : ''}`,
           choiceIndex: content.canAnswer ? index : undefined,
         },
         { text: '' },
       ];
     }),
+    ...(!content.canAnswer && content.justification
+      ? [{ text: ' ' }, {
+        text: `Explanation:\n${terminalMarkdown(content.justification)}`,
+        color: content.statusColor,
+      }]
+      : []),
     ...(content.afterword
       ? [{ text: ' ' }, {
         text: content.afterword,
@@ -80,7 +95,7 @@ export function questionContentLines(content: QuestionContent, width: number): Q
     hard: true,
     trim: false,
   }).split('\n').map((text, index) => ({
-    text,
+    text: text || ' ',
     color: line.color,
     choiceIndex: line.choiceIndex,
     choiceStart: line.choiceIndex !== undefined && index === 0,
@@ -93,7 +108,7 @@ export type QuestionAction =
   | { type: 'choice'; step: number }
   | { type: 'answer'; index: number | null };
 
-export function questionAction(input: string, key: Key): QuestionAction | null {
+export function questionAction(input: string, key: Key, multiple = false): QuestionAction | null {
   if (key.eventType === 'release' || key.meta || key.ctrl || key.super || key.hyper) {
     return null;
   }
@@ -140,7 +155,7 @@ export function questionAction(input: string, key: Key): QuestionAction | null {
     return null;
   }
   const index = learningAnswerIndex(input);
-  if (index !== null || key.return) {
+  if (index !== null || key.return || (multiple && input === ' ')) {
     return {
       type: 'answer',
       index,
