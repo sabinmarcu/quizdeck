@@ -25,6 +25,7 @@ import {
   startPracticeAtom,
   viewPracticeAtom,
 } from '../state/practice';
+import { Markdown } from './Markdown';
 import {
   answer,
   answerLabel,
@@ -377,7 +378,7 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
         return;
       }
       if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)
-        && view?.canAnswer && !event.repeat) {
+        && !(event.target instanceof HTMLAnchorElement) && view?.canAnswer && !event.repeat) {
         event.preventDefault();
         await commitAnswer(choiceFocus);
         return;
@@ -505,7 +506,9 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                     {' '}
                     {questionEntry.questionId}
                   </h3>
-                  <p className={reportText}>{questionEntry.description}</p>
+                  <div className={reportText}>
+                    <Markdown headingLevel={4}>{questionEntry.description}</Markdown>
+                  </div>
                 </header>
                 <ol
                   className={answers}
@@ -518,25 +521,25 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                           {String.fromCodePoint(65 + index)}
                           .
                           {' '}
-                          {choice.text}
+                          <Markdown mode="inline">{choice.text}</Markdown>
                         </strong>
                         <span>{choice.selected ? 'Selected answer.' : 'Not selected.'}</span>
                         <span>{choice.correct ? 'Correct answer.' : 'Incorrect answer.'}</span>
                         {choice.justification && (
-                          <span>
-                            <strong>Explanation: </strong>
-                            {choice.justification}
-                          </span>
+                          <div>
+                            <strong>Explanation</strong>
+                            <Markdown headingLevel={4}>{choice.justification}</Markdown>
+                          </div>
                         )}
                       </div>
                     </li>
                   ))}
                 </ol>
                 {questionEntry.justification && (
-                  <p className={reportText}>
-                    <strong>Explanation: </strong>
-                    {questionEntry.justification}
-                  </p>
+                  <div className={reportText}>
+                    <strong>Explanation</strong>
+                    <Markdown headingLevel={4}>{questionEntry.justification}</Markdown>
+                  </div>
                 )}
               </article>
             </li>
@@ -569,7 +572,9 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
               <span>{formatPracticeDuration(view.elapsedMs)}</span>
               <span>{view.paused ? 'Paused' : 'In progress'}</span>
             </p>
-            <p className={reportText}>{view.description}</p>
+            <div className={reportText}>
+              <Markdown>{view.description}</Markdown>
+            </div>
           </header>
           {practiceError && <p className={error} role="alert">{practiceError}</p>}
           {view.paused && (
@@ -601,7 +606,7 @@ export function Practice({ keyboardEnabled, onExit }: Practice.Props) {
                       {String.fromCodePoint(65 + index)}
                       .
                       {' '}
-                      {choice.text}
+                      <Markdown mode="inline">{choice.text}</Markdown>
                     </span>
                     {selected && <span>Selected answer.</span>}
                   </button>

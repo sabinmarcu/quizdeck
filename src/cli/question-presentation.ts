@@ -1,6 +1,7 @@
 import type { Key } from 'ink';
 import wrapAnsi from 'wrap-ansi';
 import { learningAnswerIndex } from '../state/learning';
+import { terminalMarkdown } from './markdown';
 
 export function questionControls(multiple: boolean) {
   return [
@@ -47,21 +48,22 @@ export function questionContentLines(content: QuestionContent, width: number): Q
     },
     ...(content.notice ? [{ text: content.notice }] : []),
     { text: ' ' },
-    { text: content.description },
+    { text: terminalMarkdown(content.description) },
     { text: ' ' },
     { text: ' ' },
     ...content.choices.flatMap((choice, index): QuestionLine[] => {
       const label = String.fromCodePoint(65 + index);
+      const text = terminalMarkdown(choice.text, { inline: true });
       if (choice.feedback) {
         const color: QuestionLine['color'] = choice.feedback.correct ? 'green' : 'red';
         return [
           {
-            text: `${label}. ${choice.text} [${feedbackLabel(choice.feedback.selected, choice.feedback.correct)}]`,
+            text: `${label}. ${text} [${feedbackLabel(choice.feedback.selected, choice.feedback.correct)}]`,
             color,
           },
           ...(choice.feedback.justification
             ? [{
-              text: `   Explanation: ${choice.feedback.justification}`,
+              text: `   Explanation:\n${terminalMarkdown(choice.feedback.justification)}`,
               color,
             }]
             : []),
@@ -70,7 +72,7 @@ export function questionContentLines(content: QuestionContent, width: number): Q
       }
       return [
         {
-          text: `  ${label}. ${choice.text}${choice.selected ? ' [selected]' : ''}`,
+          text: `  ${label}. ${text}${choice.selected ? ' [selected]' : ''}`,
           choiceIndex: content.canAnswer ? index : undefined,
         },
         { text: '' },
@@ -78,7 +80,7 @@ export function questionContentLines(content: QuestionContent, width: number): Q
     }),
     ...(!content.canAnswer && content.justification
       ? [{ text: ' ' }, {
-        text: `Explanation: ${content.justification}`,
+        text: `Explanation:\n${terminalMarkdown(content.justification)}`,
         color: content.statusColor,
       }]
       : []),
@@ -93,7 +95,7 @@ export function questionContentLines(content: QuestionContent, width: number): Q
     hard: true,
     trim: false,
   }).split('\n').map((text, index) => ({
-    text,
+    text: text || ' ',
     color: line.color,
     choiceIndex: line.choiceIndex,
     choiceStart: line.choiceIndex !== undefined && index === 0,

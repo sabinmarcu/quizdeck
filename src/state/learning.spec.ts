@@ -105,6 +105,36 @@ async function record(questionId: number, correct: boolean) {
 }
 
 describe('persisted learning workflow', () => {
+  it('searches visible Markdown wording rather than syntax or hidden link destinations', async () => {
+    const fixture = ready().set.questions[0]!;
+    const replaceDescription = async (description: string) => {
+      const currentSet = await createQuestionSet([{
+        ...fixture,
+        description,
+      }], {
+        name: 'Markdown search',
+        source: 'file',
+        loadedAt: 0,
+      });
+      await session.store.set(commitAtom, [{
+        kind: 'replaceSet',
+        set: currentSet,
+      }]);
+    };
+    await replaceDescription('Select **both** [safe controls](https://example.com/private-path).');
+    session.store.set(learningQueryAtom, 'select both safe controls');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
+    session.store.set(learningQueryAtom, 'private-path');
+    expect(session.store.get(learningRowsAtom)).toEqual([]);
+    session.store.set(learningQueryAtom, '1');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
+    await replaceDescription('Different **visible** wording.');
+    session.store.set(learningQueryAtom, 'select both safe controls');
+    expect(session.store.get(learningRowsAtom)).toEqual([]);
+    session.store.set(learningQueryAtom, 'different visible wording');
+    expect(session.store.get(learningRowsAtom).map((row) => row.id)).toEqual([1]);
+  });
+
   it.each([
     {
       indices: [0, 2],

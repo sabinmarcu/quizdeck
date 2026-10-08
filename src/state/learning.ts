@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { QuestionSet } from '../data/question-set';
 import type { LearningAnswer } from '../data/records';
 import { selectionOutcome } from '../data/question-set';
+import { markdownText } from '../data/markdown';
 import {
   actionErrorAtom,
   commitAtom,
@@ -60,6 +61,24 @@ function questionsById(currentSet: QuestionSet) {
   return index;
 }
 
+const descriptionTexts = new WeakMap<QuestionSet, Map<number, string>>();
+function visibleDescription(
+  currentSet: QuestionSet,
+  question: QuestionSet['questions'][number],
+): string {
+  let index = descriptionTexts.get(currentSet);
+  if (!index) {
+    index = new Map();
+    descriptionTexts.set(currentSet, index);
+  }
+  let text = index.get(question.id);
+  if (text === undefined) {
+    text = markdownText(question.description);
+    index.set(question.id, text);
+  }
+  return text;
+}
+
 const answersAtom = atom((get) => {
   const startup = get(startupAtom);
   return new Map(startup.status === 'ready'
@@ -94,12 +113,12 @@ export const learningRowsAtom = atom<LearningRow[]>((get) => {
     const matchesStatus = filter === 'all' || status === filter
       || (filter === 'completed' && status !== 'unanswered');
     if (!matchesStatus || (query && !String(question.id).includes(query)
-      && !question.description.toLocaleLowerCase().includes(query))) {
+      && !visibleDescription(startup.set, question).toLocaleLowerCase().includes(query))) {
       return [];
     }
     return [{
       id: question.id,
-      description: question.description,
+      description: visibleDescription(startup.set, question),
       status,
     }];
   });
