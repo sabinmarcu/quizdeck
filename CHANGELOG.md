@@ -1,3 +1,12 @@
+# [1.3.0](https://github.com/sabinmarcu/quizdeck/compare/v1.2.0...v1.3.0) (2026-10-08)
+
+
+### Features
+
+* **feedback:** show shared question explanations ([85f721f](https://github.com/sabinmarcu/quizdeck/commit/85f721ffad9ca436aff6b5e96637713d203e0910))
+* **markdown:** render formatted question content ([727ec63](https://github.com/sabinmarcu/quizdeck/commit/727ec63f56b7e7509776a1d06b9abb41217e8d56))
+* support progressive multi-answer questions ([00ccc8c](https://github.com/sabinmarcu/quizdeck/commit/00ccc8c97490401f6b54d288ea89f20f60a72372))
+
 # [1.2.0](https://github.com/sabinmarcu/quizdeck/compare/v1.1.0...v1.2.0) (2026-10-07)
 
 
